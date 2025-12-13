@@ -1,0 +1,68 @@
+
+================================================================================
+Manual auto-logout finished at 11.12.2025 12:58:47:
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 11.12.2025 13:02:26:
+  • 1 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 11.12.2025 13:05:56:
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 11.12.2025 13:10:24:
+Total ACTIVE sessions considered: 0
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 12.12.2025 11:11:33:
+Total ACTIVE sessions considered: 0
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 12.12.2025 11:12:49:
+Total ACTIVE sessions considered: 0
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 13.12.2025 11:08:14:
+Total ACTIVE sessions considered: 6
+  • 6 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+
+Completed sessions:
+  - ID 71: Operator [R01266 - Andrea Sebenji], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+  - ID 70: Operator [R03157 - RUŽA KOPILOVIĆ], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+  - ID 69: Operator [R02191 - Žaklina Mačai G.], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+  - ID 68: Operator [R05388 - RUŽA TUMBAS LOKETIĆ B.], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+  - ID 67: Operator [R01416 - Suzana Požar], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+  - ID 65: Operator [R00212 - Sanela Ivković], TeamUser [BANSEK_SU_B], Login date [2025-12-11], Logoff team time set to [22:00:00]
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 13.12.2025 12:37:42:
+Total ACTIVE sessions considered: 0
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================
+
+================================================================================
+Manual auto-logout finished at 13.12.2025 12:38:04:
+Total ACTIVE sessions considered: 0
+  • 0 session(s) COMPLETED
+  • 0 skipped (0 missing shift_end, 0 no Calendar)
+================================================================================

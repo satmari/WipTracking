@@ -1,0 +1,100 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Delete Team Calendar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h1 class="h4 mb-3">Delete Team Calendar Entries</h1>
+
+  <!-- GET forma — izbor TeamUser -->
+  <form method="get" class="row g-3 mb-4">
+    <div class="col-md-4">
+      <label class="form-label">Team User</label>
+      {{ form.team_user }}
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end">
+      <button type="submit" class="btn btn-primary btn-sm">
+        Show calendar
+      </button>
+    </div>
+  </form>
+
+  {% if entries %}
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="team_user" value="{{ form.team_user.value }}">
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- SELECT ALL + DELETE — ISTI RED -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+
+          <div>
+            <input type="checkbox" id="select-all">
+            <label for="select-all" class="ms-1">Select all</label>
+          </div>
+
+          <button type="submit"
+                  class="btn btn-danger btn-sm"
+                  onclick="return confirm('Are you sure you want to delete selected entries?');">
+            Delete selected
+          </button>
+        </div>
+
+        <table class="table table-striped table-hover">
+          <thead class="table-light">
+            <tr>
+              <th style="width:40px;"></th>
+              <th>Date</th>
+              <th>Shift</th>
+              <th>Created</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for c in entries %}
+            <tr>
+              <td>
+                <input type="checkbox" name="selected_entries"
+                       value="{{ c.id }}" class="entry-checkbox">
+              </td>
+
+              <td>{{ c.date|date:"d.m.Y." }}</td>
+              <td>{{ c.shift_start|time:"H:i" }} – {{ c.shift_end|time:"H:i" }}</td>
+              <td>{{ c.created_at|date:"d.m.Y. H:i" }}</td>
+              <td>{{ c.updated_at|date:"d.m.Y. H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+      </div>
+    </div>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const selectAll = document.getElementById('select-all');
+      const boxes = document.querySelectorAll('.entry-checkbox');
+
+      if (selectAll) {
+        selectAll.addEventListener('change', function() {
+          boxes.forEach(cb => cb.checked = selectAll.checked);
+        });
+      }
+    });
+  </script>
+
+  {% elif form.team_user.value %}
+    <div class="alert alert-info mt-3">
+      No calendar entries found for selected team.
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Confirm delete{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card border-danger shadow-sm">
+    <div class="card-header bg-danger text-white">
+      Confirm deletion
+    </div>
+    <div class="card-body">
+      <p>
+        Are you sure you want to delete:
+        <strong>{{ object }}</strong>?
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <a href="javascript:history.back()" class="btn btn-secondary btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-danger btn-sm">Yes, delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

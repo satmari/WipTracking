@@ -1,0 +1,342 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Add Team calendar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">Add Team calendar</h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <p class="text-muted small mb-2">
+          Choose <strong>From date</strong> and <strong>To date</strong>, then use calendar to select specific days.
+          After that choose Team, start and end time.
+        </p>
+
+        <!-- DATE RANGE -->
+        <div class="col-md-4">
+          <label class="form-label">From date</label>
+          {{ form.date_from|add_class:"form-control" }}
+          {{ form.date_from.errors }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">To date</label>
+          {{ form.date_to|add_class:"form-control" }}
+          {{ form.date_to.errors }}
+        </div>
+
+        <!-- CALENDAR GRID -->
+        <div class="col-12 mt-4">
+          <h5 class="mb-2">Select days for this shift</h5>
+
+          <!-- Calendar helpers -->
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-select-all">Select all</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-select-weekdays">Weekdays</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-select-every-second-week">
+              Every 2nd week (Mon–Sat)
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-clear-all">Clear all</button>
+          </div>
+
+          <div id="calendar-grid" class="border rounded p-2 bg-light" style="min-height: 80px;">
+            <span id="calendar-placeholder" class="text-muted small">
+              Select "From date" and "To date" to generate the calendar grid.
+            </span>
+          </div>
+        </div>
+
+        <!-- SHIFT SETTINGS -->
+        <div class="col-md-4">
+          <label class="form-label">Team User</label>
+          {{ form.team_user|add_class:"form-select" }}
+          {{ form.team_user.errors }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Shift start</label>
+          {{ form.shift_start|add_class:"form-select" }}
+          {{ form.shift_start.errors }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Shift end</label>
+          {{ form.shift_end|add_class:"form-select" }}
+          {{ form.shift_end.errors }}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:calendar_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">Create calendar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .blocked-day {
+    background-color: #f8d7da !important; /* Bootstrap danger-subtle */
+    color: #6c757d !important;
+    pointer-events: none;
+  }
+  .blocked-day label {
+    color: #6c757d !important;
+  }
+</style>
+
+<script>
+/* ---------------------------------------------------------
+   HELPERS FOR BLOCKING PAST DAYS & TODAY AFTER SHIFT START
+--------------------------------------------------------- */
+
+function getTodayISO() {
+    const t = new Date();
+    t.setHours(0,0,0,0);
+    return t.toISOString().slice(0,10);
+}
+
+function getSelectedShiftStart() {
+    const ss = document.getElementById("id_shift_start");
+    if (!ss) return null;
+    return ss.value; // "HH:MM"
+}
+
+function isShiftAlreadyStarted() {
+    const shiftStart = getSelectedShiftStart();
+    if (!shiftStart) return false;
+
+    const now = new Date();
+    const [hh, mm] = shiftStart.split(":").map(x => parseInt(x, 10));
+
+    const shiftTime = new Date();
+    shiftTime.setHours(hh, mm, 0, 0);
+
+    return now >= shiftTime;
+}
+
+function blockDayCell(cell, label) {
+    cell.classList.add("blocked-day");
+    label.classList.add("text-muted");
+}
+
+/* ---------------------------------------------------------
+   CALENDAR GRID BUILDER
+--------------------------------------------------------- */
+
+function buildCalendarGrid() {
+    const fromInput = document.getElementById('id_date_from');
+    const toInput = document.getElementById('id_date_to');
+    const container = document.getElementById('calendar-grid');
+    const placeholder = document.getElementById('calendar-placeholder');
+
+    if (!fromInput || !toInput || !container) return;
+
+    const fromVal = fromInput.value;
+    const toVal = toInput.value;
+
+    container.innerHTML = '';
+
+    if (!fromVal || !toVal) {
+        if (placeholder) {
+            placeholder.textContent = 'Select "From date" and "To date" to generate the calendar grid.';
+            container.appendChild(placeholder);
+        }
+        return;
+    }
+
+    const start = new Date(fromVal);
+    const end = new Date(toVal);
+
+    if (isNaN(start) || isNaN(end) || start > end) {
+        const msg = document.createElement('div');
+        msg.className = 'text-danger small';
+        msg.textContent = 'Invalid date range.';
+        container.appendChild(msg);
+        return;
+    }
+
+    function addDays(date, days) {
+        const d = new Date(date);
+        d.setDate(d.getDate() + days);
+        return d;
+    }
+
+    function getWeekdayIndex(date) {
+        return (date.getDay() + 6) % 7; // JS: 0=Sun..6=Sat → Here: 0=Mon..6=Sun
+    }
+
+    const table = document.createElement('table');
+    table.className = 'table table-bordered table-sm align-middle mb-0 bg-white';
+
+    const thead = document.createElement('thead');
+    thead.className = 'table-light';
+    const headRow = document.createElement('tr');
+    const daysHeader = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    daysHeader.forEach(text => {
+        const th = document.createElement('th');
+        th.className = 'text-center small';
+        th.textContent = text;
+        headRow.appendChild(th);
+    });
+
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    let current = new Date(start);
+    let row = document.createElement('tr');
+    let firstWeekdayIndex = getWeekdayIndex(current);
+
+    // Leading empty cells
+    for (let i = 0; i < firstWeekdayIndex; i++) {
+        row.appendChild(document.createElement('td'));
+    }
+
+    const todayISO = getTodayISO();
+    const shiftStarted = isShiftAlreadyStarted();
+
+    while (current <= end) {
+        const weekdayIndex = getWeekdayIndex(current);
+        const cell = document.createElement('td');
+        cell.className = 'text-center';
+
+        const isoVal = current.toISOString().slice(0, 10);
+        const labelText = current.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check d-flex flex-column align-items-center mb-0';
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label small';
+        label.textContent = labelText;
+
+        const isToday = (isoVal === todayISO);
+        const isPast = (current < new Date(todayISO));
+        const isBlocked = isPast || (isToday && shiftStarted);
+
+        if (isBlocked) {
+            // Show a placeholder instead of checkbox
+            const dash = document.createElement('div');
+            dash.className = 'small text-muted';
+            dash.textContent = '—';
+            wrapper.appendChild(dash);
+
+            blockDayCell(cell, label);
+        } else {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input day-checkbox';
+            checkbox.name = 'selected_dates';
+            checkbox.value = isoVal;
+
+            // Default selection: weekdays only
+            checkbox.checked = (weekdayIndex < 5);
+
+            wrapper.appendChild(checkbox);
+        }
+
+        wrapper.appendChild(label);
+        cell.appendChild(wrapper);
+        row.appendChild(cell);
+
+        if (weekdayIndex === 6) {
+            tbody.appendChild(row);
+            row = document.createElement('tr');
+        }
+
+        current = addDays(current, 1);
+    }
+
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+/* ---------------------------------------------------------
+   EXTRA BUTTONS: Select all, Weekdays, Clear, Every 2nd Week
+--------------------------------------------------------- */
+
+function getAllDayCheckboxes() {
+    return document.querySelectorAll('.day-checkbox');
+}
+
+function getWeekdayIndexFromISO(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return null;
+    return (d.getDay() + 6) % 7;
+}
+
+function mondayOfDate(date) {
+    const d = new Date(date);
+    const delta = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - delta);
+    d.setHours(0,0,0,0);
+    return d;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Rebuild grid when date range changes
+    ['id_date_from', 'id_date_to', 'id_shift_start'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', buildCalendarGrid);
+    });
+
+    // Buttons
+    const btnAll = document.getElementById('btn-select-all');
+    const btnWeek = document.getElementById('btn-select-weekdays');
+    const btnEvery2 = document.getElementById('btn-select-every-second-week');
+    const btnClear = document.getElementById('btn-clear-all');
+
+    if (btnAll) btnAll.addEventListener('click', () => {
+        getAllDayCheckboxes().forEach(cb => cb.checked = true);
+    });
+
+    if (btnClear) btnClear.addEventListener('click', () => {
+        getAllDayCheckboxes().forEach(cb => cb.checked = false);
+    });
+
+    if (btnWeek) btnWeek.addEventListener('click', () => {
+        getAllDayCheckboxes().forEach(cb => {
+            const idx = getWeekdayIndexFromISO(cb.value);
+            cb.checked = (idx < 5);
+        });
+    });
+
+    if (btnEvery2) btnEvery2.addEventListener('click', () => {
+        const cbs = Array.from(getAllDayCheckboxes());
+        if (!cbs.length) return;
+
+        const fromInput = document.getElementById('id_date_from');
+        if (!fromInput || !fromInput.value) return;
+
+        const baseMonday = mondayOfDate(new Date(fromInput.value));
+
+        cbs.forEach(cb => {
+            const d = new Date(cb.value);
+            const idx = getWeekdayIndexFromISO(cb.value);
+            if (idx === null || idx === 6) {
+                cb.checked = false;
+                return;
+            }
+
+            const thisMonday = mondayOfDate(d);
+            const weekDiff = Math.floor((thisMonday - baseMonday) / (7 * 24 * 60 * 60 * 1000));
+
+            cb.checked = (weekDiff >= 0 && weekDiff % 2 === 0);
+        });
+    });
+
+});
+</script>
+
+{% endblock %}

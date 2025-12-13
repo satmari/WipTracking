@@ -1,0 +1,70 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Team Users{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Team Users</h1>
+    <a href="{% url 'planners:user_add' %}" class="btn btn-primary btn-sm">+ Add User</a>
+  </div>
+
+
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <table class="table table-striped table-hover mb-0" id="users-table">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Name</th>
+            <th>Subdepartment</th>
+            <th>Active</th>
+            <th>Created</th>
+            <th>Updated</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.first_name }} {{ u.last_name }}</td>
+            <td>{{ u.subdepartment }}</td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td>{{ u.created_at|date:"d.m.Y. H:i" }}</td>
+            <td>{{ u.updated_at|date:"d.m.Y. H:i" }}</td>
+            <td class="text-end">
+              <a href="{% url 'planners:user_edit' u.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted">No users found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  $(function () {
+    $('#users-table').DataTable({
+      fixedHeader: true
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Routing Operation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if form.instance.pk %}Edit Routing Operation{% else %}Add Routing Operation{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        {# ---------- ROUTING ---------- #}
+        <div class="col-md-4">
+          <label class="form-label"><b>Routing</b></label>
+
+          {% if form.instance.pk %}
+            {# EDIT MODE → read-only prikaz + hidden value #}
+            <input type="hidden" name="routing" value="{{ form.instance.routing.pk }}">
+            <input type="text"
+                   class="form-control"
+                   value="{{ form.instance.routing }}"
+                   readonly disabled>
+            <small class="text-muted d-block mt-1">
+              Routing cannot be changed in edit mode.
+            </small>
+          {% else %}
+            {# CREATE MODE → normalan select #}
+            {{ form.routing|add_class:"form-select" }}
+          {% endif %}
+
+          {{ form.routing.errors }}
+        </div>
+
+        {# ---------- OPERATION ---------- #}
+        <div class="col-md-4">
+          <label class="form-label"><b>Operation</b></label>
+
+          {% if form.instance.pk %}
+            <input type="hidden" name="operation" value="{{ form.instance.operation.pk }}">
+            <input type="text"
+                   class="form-control"
+                   value="{{ form.instance.operation }}"
+                   readonly>
+            <small class="text-muted d-block mt-1">
+              Operation cannot be changed in edit mode.
+            </small>
+          {% else %}
+            {{ form.operation|add_class:"form-select" }}
+            <small class="text-muted d-block mt-1">
+              Only operations from the selected routing's subdepartment are shown.
+            </small>
+          {% endif %}
+
+          {{ form.operation.errors }}
+        </div>
+
+        {# ---------- DESCRIPTION ---------- #}
+        <div class="col-md-6">
+          <label class="form-label">Operation description</label>
+          {{ form.operation_description|add_class:"form-control" }}
+          {{ form.operation_description.errors }}
+        </div>
+
+        {# ---------- SMV ---------- #}
+        <div class="col-md-2">
+          <label class="form-label">SMV <span class="text-danger">*</span></label>
+          {{ form.smv|add_class:"form-control" }}
+          {{ form.smv.errors }}
+        </div>
+
+        {# ---------- SMV ITA ---------- #}
+        <div class="col-md-2">
+          <label class="form-label">SMV ITA </label>
+          {{ form.smv_ita|add_class:"form-control" }}
+          {{ form.smv_ita.errors }}
+        </div>
+
+        {# ---------- FINAL OP ---------- #}
+        <div class="col-md-3 d-flex align-items-center mt-4">
+          <div class="form-check">
+            {{ form.final_operation|add_class:"form-check-input" }}
+            <label class="form-check-label ms-1">Final operation</label>
+          </div>
+          {{ form.final_operation.errors }}
+        </div>
+
+        {# ---------- BUTTONS ---------- #}
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:routing_operation_list' %}"
+             class="btn btn-secondary btn-sm">Cancel</a>
+
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if form.instance.pk %}Save changes{% else %}Create routing operation{% endif %}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const routingSelect = document.getElementById('id_routing');
+    const operationSelect = document.getElementById('id_operation');
+
+    // U EDIT modu ovih elemenata nema (renderujemo custom readonly polja),
+    // pa se skripta sama gasi.
+    if (!routingSelect || !operationSelect) return;
+
+    const routingToSubdep = {
+      {% for r in form.fields.routing.queryset %}
+        "{{ r.pk }}": "{{ r.subdepartment_id }}",
+      {% endfor %}
+    };
+
+    const operationToSubdep = {
+      {% for op in form.fields.operation.queryset %}
+        "{{ op.pk }}": "{{ op.subdepartment_id }}",
+      {% endfor %}
+    };
+
+    function filterOperations() {
+      const routingId = routingSelect.value;
+      const subdepId = routingToSubdep[routingId];
+
+      // Ako routing NIJE izabran → ne filtriramo, prikaži sve opcije
+      if (!subdepId) {
+        for (const opt of operationSelect.options) {
+          opt.hidden = false;
+        }
+        return;
+      }
+
+      // Ako je routing izabran → filtriraj po subdepartmentu
+      for (const opt of operationSelect.options) {
+        if (!opt.value) {
+          opt.hidden = false;
+          continue;
+        }
+        const opSubdep = operationToSubdep[opt.value];
+        const show = opSubdep === subdepId;
+        opt.hidden = !show;
+      }
+
+      const selected = operationSelect.options[operationSelect.selectedIndex];
+      if (selected && selected.hidden) {
+        operationSelect.value = "";
+      }
+    }
+
+    routingSelect.addEventListener('change', filterOperations);
+    filterOperations();   // initial (create mode)
+  });
+</script>
+{% endblock %}

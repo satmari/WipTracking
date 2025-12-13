@@ -1,0 +1,28 @@
+{% extends "core/base.html" %}
+
+{% load static %}
+{% block content %}
+<div class="container text-center">
+    <br>
+    <h3>Welcome to new Wip Tracking App</h3>
+    <br>
+    <h4>Please <a class="n av-link" href="{% url 'core:login' %}">login</a> first</h4>
+<!--    <p>Select your dashboard:</p>-->
+<!--    <div>-->
+<!--        {% with user.groups.first as user_group %}-->
+<!--            {% if user_group and user_group.name == "admins" %}-->
+<!--                <a href="{% url 'admin_dashboard' %}" class="btn btn-success">Go to Admin Dashboard</a>-->
+<!--            {% elif user_group and user_group.name == "preparations" %}-->
+<!--                <a href="{% url 'preparation:preparation_dashboard' %}" class="btn btn-success">Go to Preparation Dashboard</a>-->
+<!--            {% elif user_group and user_group.name == "lines" %}-->
+<!--                <a href="{% url 'line:line_dashboard' %}" class="btn btn-warning">Go to Line Dashboard</a>-->
+<!--            {% else %}-->
+<!--                <p>You are not assigned to any group.</p>-->
+<!--            {% endif %}-->
+<!--        {% endwith %}-->
+<!--    </div>-->
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

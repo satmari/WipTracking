@@ -1,0 +1,84 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Operation{% else %}Add Operation{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if form.instance.pk %}Edit Operation{% else %}Add Operation{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <!-- NAME -->
+        <div class="col-md-4">
+          <label class="form-label"><b>Operation name</b></label>
+          {{ form.name|add_class:"form-control" }}
+          {{ form.name.errors }}
+          {% if form.instance.pk %}
+            <small class="text-muted">Operation name cannot be changed once created.</small>
+          {% endif %}
+        </div>
+
+        <!-- SUBDEPARTMENT (disabled on edit) -->
+        <div class="col-md-4">
+          <label class="form-label"><b>Subdepartment</b></label>
+
+          {% if form.instance.pk %}
+            {{ form.subdepartment|add_class:"form-select" }}
+            <small class="text-muted">Subdepartment cannot be changed once created.</small>
+          {% else %}
+            {{ form.subdepartment|add_class:"form-select" }}
+          {% endif %}
+
+          {{ form.subdepartment.errors }}
+        </div>
+
+        <!-- STATUS -->
+        <div class="col-md-3 d-flex align-items-center mt-4">
+          <div class="form-check mt-2">
+            {{ form.status|add_class:"form-check-input" }}
+            <label class="form-check-label ms-1" for="{{ form.status.id_for_label }}">
+              Active
+            </label>
+          </div>
+          {{ form.status.errors }}
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="col-md-8">
+          <label class="form-label">Operation description</label>
+          {{ form.description|add_class:"form-control" }}
+          {{ form.description.errors }}
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:operation_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if form.instance.pk %}Save changes{% else %}Create operation{% endif %}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  select[disabled], input[readonly] {
+    background-color: #e9ecef !important;
+    cursor: not-allowed;
+    opacity: .8;
+  }
+</style>
+
+{% endblock %}

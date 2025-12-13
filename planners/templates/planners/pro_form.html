@@ -1,0 +1,140 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}PRO{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if form.instance.pk %}Edit PRO{% else %}Add PRO{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="row g-3 w-100">
+          <div class="col-md-4">
+            <label class="form-label" for="{{ form.pro_name.id_for_label }}">PRO Name</label>
+            {{ form.pro_name|add_class:"form-control" }}
+            {{ form.pro_name.errors }}
+          </div>
+
+          {% if not form.instance.pk %}
+            <div class="col-md-8">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ form.style.id_for_label }}">Style</label>
+                  {{ form.style|add_class:"form-control" }}
+                  {{ form.style.errors }}
+
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ form.color.id_for_label }}">Color</label>
+                  {{ form.color|add_class:"form-control" }}
+                  {{ form.color.errors }}
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ form.size.id_for_label }}">Size</label>
+                  {{ form.size|add_class:"form-control" }}
+                  {{ form.size.errors }}
+                </div>
+              </div>
+
+              {{ form.sku }} {# hidden sku field for POST (CreateView should keep it HiddenInput) #}
+            </div>
+          {% else %}
+            <div class="col-md-8">
+              <label class="form-label" for="{{ form.sku.id_for_label }}">SKU</label>
+              {{ form.sku|add_class:"form-control" }}
+              {{ form.sku.errors }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="row g-3 mt-1 w-100">
+          <div class="col-md-2">
+            <label class="form-label" for="{{ form.qty.id_for_label }}">Quantity</label>
+            {{ form.qty|add_class:"form-control" }}
+            {{ form.qty.errors }}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label" for="{{ form.del_date.id_for_label }}">Delivery date</label>
+            {{ form.del_date|add_class:"form-control" }}
+            {{ form.del_date.errors }}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label" for="{{ form.destination.id_for_label }}">Destination</label>
+            {{ form.destination|add_class:"form-control" }}
+            {{ form.destination.errors }}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label" for="{{ form.tpp.id_for_label }}">TPP</label>
+            {{ form.tpp|add_class:"form-control" }}
+            {{ form.tpp.errors }}
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1 w-100">
+          <div class="col-md-12">
+            <label class="form-label" for="{{ form.skeda.id_for_label }}">Skeda</label>
+            {{ form.skeda|add_class:"form-control" }}
+            {{ form.skeda.errors }}
+          </div>
+        </div>
+
+        <div class="col-12 mt-4">
+          <h5 class="mb-2">Subdepartments</h5>
+          <p class="small text-muted mb-2">Check subdepartments that belong to this PRO.</p>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 80px;">Active</th>
+                  <th>Subdepartment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for sd in all_subdepartments %}
+                <tr>
+                  <td class="text-center">
+                    <input type="checkbox" name="subdepartments" value="{{ sd.id }}" {% if sd.id in selected_subdepartment_ids %}checked{% endif %}/>
+                  </td>
+                  <td>{{ sd.subdepartment }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-3 w-100">
+          <div class="col-md-12 d-flex justify-content-end align-items-center">
+            <div class="form-check me-2">
+              {{ form.status|add_class:"form-check-input" }}
+              <label class="form-check-label ms-1" for="{{ form.status.id_for_label }}">Active</label>
+            </div>
+            {{ form.status.errors }}
+          </div>
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:pro_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if form.instance.pk %}Save changes{% else %}Create PRO{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

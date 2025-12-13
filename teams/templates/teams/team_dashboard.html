@@ -1,0 +1,90 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Team Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Team: {{ request.user.username }}</h1>
+  </div>
+
+  {% if messages %}
+    <div class="mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-2">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if calendar_entry %}
+    {# smena postoji; boja iz shift_alert_class; slim alert + status desno #}
+    <div class="alert alert-{{ shift_alert_class }} d-flex justify-content-between align-items-center py-2 px-3 mb-3">
+      <div class="small">
+        <strong>Today's shift:</strong>
+        {{ calendar_entry.date|date:"d.m.Y" }}
+        &nbsp;|&nbsp;
+        {{ calendar_entry.shift_start|time:"H:i" }} – {{ calendar_entry.shift_end|time:"H:i" }}
+        {% if shift_state == "inactive" %}
+          &nbsp;|&nbsp; You can login only before shift start
+        {% endif %}
+      </div>
+
+      <div class="ms-3">
+        {% if shift_state == "active" %}
+          <span class="badge bg-light text-success border border-success">ACTIVE</span>
+        {% elif shift_state == "inactive" %}
+          <span class="badge bg-light text-warning border border-warning">OUTSIDE SHIFT HOURS</span>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {# nema smene za danas – slim, crveni alert, status desno #}
+    <div class="alert alert-danger d-flex justify-content-between align-items-center py-2 px-3 mb-3">
+      <div class="small">
+        <strong>No shift planned for today.</strong>
+        &nbsp;Operators cannot be logged in if shift is not set.
+      </div>
+      <div class="ms-3">
+        <span class="badge bg-light text-danger border border-danger">NO SHIFT</span>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body text-center">
+          <a href="{% url 'teams:operator_login' %}" class="btn btn-primary btn-lg">
+            Operator Login
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body text-center">
+          <a href="{% url 'teams:operator_logout' %}" class="btn btn-danger btn-lg">
+            Operator Logout
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body text-center">
+          <a href="{% url 'teams:declare_output' %}" class="btn btn-outline-primary btn-lg">
+            Declare Output
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

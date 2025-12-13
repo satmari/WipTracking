@@ -1,0 +1,137 @@
+/* Global styles */
+body {
+    background-color: #d5e0ee;
+    background-image: url("../images/8.png");
+    background-repeat: repeat;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f2933;
+}
+
+/* Navbar – flat, modern */
+.navbar {
+    background: linear-gradient(90deg, #595d62, #1f2933);
+    border: none;
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.4);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #f9fafb !important;
+}
+
+.navbar-nav .pos-link,
+.navbar-nav > li > a {
+    color: #e5e7eb !important;
+    font-weight: 500;
+}
+
+.navbar-nav .pos-link:hover,
+.navbar-nav > li > a:hover {
+    color: #38bdf8 !important;
+}
+
+/* Page title */
+h1, .page-header, .panel-title {
+    font-weight: 600;
+    color: #111827;
+}
+
+/* Tables / DataTables */
+.dataTables_filter {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.dataTables_filter input {
+    display: inline-block;
+    width: 260px;
+    max-width: 100%;
+    text-align: left;
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #cbd5f5;
+    background-color: #f9fafb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) inset;
+}
+
+.custom-table {
+    font-size: 12px;
+}
+
+/* Panels / cards */
+div.panel.panel-default {
+    background-color: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18) !important;
+    padding: 18px !important;
+}
+
+/* Buttons (Bootstrap override – cleaner spacing) */
+.btn-group-sm > .btn,
+.btn-sm {
+    --bs-btn-padding-y: 0 !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-color: #1d4ed8;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    border-color: #1e40af;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-color: #dc2626;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    border-color: #b91c1c;
+}
+
+/* Bigger checkboxes / radios */
+.larger-checkbox {
+    transform: scale(1.8);
+    margin-top: 12px;
+}
+
+.larger-radio {
+    transform: scale(1.4);
+}
+
+/* Status colors */
+.zuto {
+    background-color: #fef9c3 !important;
+}
+
+.zeleno {
+    background-color: #bbf7d0 !important;
+}
+
+.crveno {
+    background-color: #fecaca !important;
+}
+
+/* Alerts – smooth fade-out */
+.alert {
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    opacity: 1;
+    transform: translateY(0);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+}
+
+.alert.fade {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+}

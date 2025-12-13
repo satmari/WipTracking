@@ -1,0 +1,59 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}{% if object %}Edit Operator{% else %}Add Operator{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if object %}Edit Operator{% else %}Add Operator{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="col-md-3">
+          <label class="form-label">Badge number</label>
+          {{ form.badge_num|add_class:"form-control" }}
+          {{ form.badge_num.errors }}
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label">Name</label>
+          {{ form.name|add_class:"form-control" }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Function</label>
+          {{ form.func|add_class:"form-control" }}
+          {{ form.func.errors }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Active</label><br>
+          {{ form.act }}
+          {{ form.act.errors }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">PIN Code</label>
+          {{ form.pin_code|add_class:"form-control" }}
+          {{ form.pin_code.errors }}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:operator_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if object %}Save changes{% else %}Create{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

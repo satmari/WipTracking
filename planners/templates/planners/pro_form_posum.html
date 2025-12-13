@@ -1,0 +1,30 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Add PRO from POSummary{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">Add PRO from POSummary — Step 1: Enter PRO</h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="col-md-6">
+          <label class="form-label">POSummary PRO</label>
+          {{ form.pro|add_class:"form-control" }}
+          {{ form.pro.errors }}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:pro_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">Fetch from POSummary</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

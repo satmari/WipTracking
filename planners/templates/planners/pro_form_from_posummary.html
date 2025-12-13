@@ -1,0 +1,144 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Add PRO from POSummary{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">Add PRO from POSummary — Step 2: Review & Create</h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      {% if posummary_preview %}
+        <div class="mb-3">
+          <strong>POSummary preview:</strong>
+          <div class="small text-muted">
+            PRO: {{ posummary_preview.pro }} |
+            Style: {{ posummary_preview.style }} |
+            Color: {{ posummary_preview.color }} |
+            Size: {{ posummary_preview.size }} |
+            Qty: {{ posummary_preview.qty }} |
+            Delivery: {{ posummary_preview.delivery_date }} |
+            Destination: {{ posummary_preview.destination }} |
+            TPP: {{ posummary_preview.tpp }} |
+            Skeda: {{ posummary_preview.skeda }} |
+            Status: {{ posummary_preview.status }}
+          </div>
+        </div>
+      {% endif %}
+
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="col-md-6">
+          <label class="form-label">PRO Name</label>
+          {{ form.pro_name|add_class:"form-control" }}
+          {{ form.pro_name.errors }}
+        </div>
+
+        {% if not form.instance.pk %}
+          <div class="col-md-4">
+            <label class="form-label">Style</label>
+            {{ form.style|add_class:"form-control" }}
+            {{ form.style.errors }}
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">Color</label>
+            {{ form.color|add_class:"form-control" }}
+            {{ form.color.errors }}
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">Size</label>
+            {{ form.size|add_class:"form-control" }}
+            {{ form.size.errors }}
+          </div>
+
+          {# hidden sku field (kept for POST) #}
+          {{ form.sku }}
+        {% else %}
+          <div class="col-md-4">
+            <label class="form-label">SKU</label>
+            {{ form.sku|add_class:"form-control" }}
+            {{ form.sku.errors }}
+          </div>
+        {% endif %}
+
+        <div class="col-md-2">
+          <label class="form-label">Quantity</label>
+          {{ form.qty|add_class:"form-control" }}
+          {{ form.qty.errors }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Delivery date</label>
+          {{ form.del_date|add_class:"form-control" }}
+          {{ form.del_date.errors }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Destination</label>
+          {{ form.destination|add_class:"form-control" }}
+          {{ form.destination.errors }}
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">TPP</label>
+          {{ form.tpp|add_class:"form-control" }}
+          {{ form.tpp.errors }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Skeda</label>
+          {{ form.skeda|add_class:"form-control" }}
+          {{ form.skeda.errors }}
+        </div>
+
+        <div class="col-md-3 d-flex align-items-center">
+          <div class="form-check mt-4">
+            {{ form.status|add_class:"form-check-input" }}
+            <label class="form-check-label ms-1" for="{{ form.status.id_for_label }}">
+              Active
+            </label>
+            {{ form.status.errors }}
+          </div>
+        </div>
+
+        {# SUBDEPARTMENTS table (isto kao u standardnom formu) #}
+        <div class="col-12 mt-4">
+          <h5 class="mb-2">Subdepartments</h5>
+          <p class="small text-muted mb-2">Check subdepartments that belong to this PRO.</p>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 80px;">Active</th>
+                  <th>Subdepartment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for sd in all_subdepartments %}
+                <tr>
+                  <td class="text-center">
+                    <input type="checkbox" name="subdepartments" value="{{ sd.id }}" {% if sd.id in selected_subdepartment_ids %}checked{% endif %}/>
+                  </td>
+                  <td>{{ sd.subdepartment }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:posummary_lookup' %}" class="btn btn-secondary btn-sm">Back</a>
+          <button type="submit" class="btn btn-primary btn-sm">Create from POSummary</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

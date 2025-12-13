@@ -1,0 +1,87 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Routing{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if form.instance.pk %}Edit Routing{% else %}Add Routing{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        {# SKU #}
+        <div class="col-md-4">
+          <label class="form-label"><b>SKU</b></label>
+          {{ form.sku|add_class:"form-control" }}
+          {{ form.sku.errors }}
+          {% if form.instance.pk %}
+            <small class="text-muted">
+              SKU / Subdepartment / Version cannot be changed once created.
+            </small>
+          {% endif %}
+        </div>
+
+        {# SUBDEPARTMENT #}
+        <div class="col-md-4">
+          <label class="form-label"><b>Subdepartment</b></label>
+          {{ form.subdepartment|add_class:"form-select" }}
+          {{ form.subdepartment.errors }}
+        </div>
+
+        {# VERSION #}
+        <div class="col-md-2">
+          <label class="form-label"><b>Version</b></label>
+          {{ form.version|add_class:"form-control" }}
+          {{ form.version.errors }}
+        </div>
+
+        {# VERSION DESCRIPTION #}
+        <div class="col-md-6">
+          <label class="form-label">Version description</label>
+          {{ form.version_description|add_class:"form-control" }}
+          {{ form.version_description.errors }}
+        </div>
+
+        {# DECLARATION TYPE (required dropdown) #}
+        <div class="col-md-3">
+          <label class="form-label">Declaration type</label>
+          {{ form.declaration_type|add_class:"form-select" }}
+          {{ form.declaration_type.errors }}
+        </div>
+
+        {# READY je namerno sakriven iz forme (kontroliše ga backend), ne renderujemo ga #}
+
+        {# STATUS (ACTIVE) #}
+        <div class="col-md-3 d-flex align-items-center mt-4">
+          <div class="form-check mt-2">
+            {{ form.status|add_class:"form-check-input" }}
+            <label class="form-check-label ms-1" for="{{ form.status.id_for_label }}">
+              Active
+            </label>
+          </div>
+          {{ form.status.errors }}
+        </div>
+
+        {# BUTTONS #}
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:routing_list' %}" class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if form.instance.pk %}Save changes{% else %}Create routing{% endif %}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

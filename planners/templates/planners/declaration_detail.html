@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Declaration #{{ declaration.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Declaration #{{ declaration.id }}</h1>
+    <div>
+      <a href="{% url 'planners:declaration_edit' declaration.id %}" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+      <a href="{% url 'planners:declaration_delete' declaration.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <dl class="row">
+            <dt class="col-5">Declaration date</dt>
+            <dd class="col-7">{{ declaration.decl_date }}</dd>
+
+            <dt class="col-5">Team user</dt>
+            <dd class="col-7">{{ declaration.teamuser.username }}</dd>
+
+            <dt class="col-5">Subdepartment</dt>
+            <dd class="col-7">{{ declaration.subdepartment.subdepartment|default:"—" }}</dd>
+
+            <dt class="col-5">PRO</dt>
+            <dd class="col-7">{{ declaration.pro.pro_name }}</dd>
+
+            <dt class="col-5">Routing</dt>
+            <dd class="col-7">{{ declaration.routing.sku }} (v{{ declaration.routing.version }})</dd>
+
+            <dt class="col-5">Routing operation</dt>
+            <dd class="col-7">{{ declaration.routing_operation|default:"—" }}</dd>
+
+            <dt class="col-5">Quantity</dt>
+            <dd class="col-7">{{ declaration.qty }}</dd>
+          </dl>
+        </div>
+
+        <div class="col-md-6">
+          <dl class="row">
+            <dt class="col-5">SMV</dt>
+            <dd class="col-7">{{ declaration.smv|default:"—" }}</dd>
+
+            <dt class="col-5">SMV ITA</dt>
+            <dd class="col-7">{{ declaration.smv_ita|default:"—" }}</dd>
+
+            <dt class="col-5">Operators ({{ op_count }})</dt>
+            <dd class="col-7">
+              {% if declaration.operators.all %}
+                <ul class="mb-0">
+                  {% for op in declaration.operators.all %}
+                    <li>{{ op.badge_num }} — {{ op.name }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                —
+              {% endif %}
+            </dd>
+
+            <dt class="col-5">Created</dt>
+            <dd class="col-7">{{ created_at_fmt }}</dd>
+
+            <dt class="col-5">Updated</dt>
+            <dd class="col-7">{{ updated_at_fmt }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <a href="{% url 'planners:declaration_list' %}" class="btn btn-outline-secondary btn-sm">← Back to declarations</a>
+</div>
+{% endblock %}

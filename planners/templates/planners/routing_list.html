@@ -1,0 +1,160 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Routings{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">  {# WIDE TABLE #}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Routings</h1>
+    <a href="{% url 'planners:routing_add' %}" class="btn btn-primary btn-sm">+ Add routing</a>
+    <a href="{% url 'planners:routing_copy_step1' %}" class="btn btn-danger btn-sm">⇄ Copy routing</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+
+      <!-- dodata klasa auto-init-filters da base.html automatski inicijalizuje -->
+      <table id="routing-table" class="table table-striped table-hover mb-0 auto-init-filters" style="width:100%;">
+        <thead class="table-light">
+          <tr>
+            <th>SKU</th>
+            <th>Subdepartment</th>
+            <th>Version</th>
+            <th>Description</th>
+            <th>Declaration type</th>
+            <th>Ready</th>
+            <th>Operations</th>
+            <th>Active</th>
+            <th>Created</th>
+            <th>Updated</th>
+            <th class="text-end" style="width:160px;">Actions</th>
+          </tr>
+
+          <!-- FILTER ROW: svaki .column-filter ima data-column indeks -->
+          <tr>
+            <th><input class="form-control form-control-sm column-filter" data-column="0" placeholder="Filter…"></th>
+            <th><input class="form-control form-control-sm column-filter" data-column="1" placeholder="Filter…"></th>
+            <th><input class="form-control form-control-sm column-filter" data-column="2" placeholder="Filter…"></th>
+            <th><input class="form-control form-control-sm column-filter" data-column="3" placeholder="Filter…"></th>
+            <th><input class="form-control form-control-sm column-filter" data-column="4" placeholder="Filter…"></th>
+
+            <th>
+              <select class="form-select form-select-sm column-filter" data-column="5">
+                <option value="">All</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </th>
+
+            <th><input class="form-control form-control-sm column-filter" data-column="6" placeholder="Filter…"></th>
+
+            <th>
+              <select class="form-select form-select-sm column-filter" data-column="7">
+                <option value="">All</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </th>
+
+            <th><input class="form-control form-control-sm column-filter" data-column="8" placeholder="Filter…"></th>
+            <th><input class="form-control form-control-sm column-filter" data-column="9" placeholder="Filter…"></th>
+
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in routings %}
+          <tr>
+            <td>{{ r.sku }}</td>
+            <td>{{ r.subdepartment.subdepartment }}</td>
+            <td>{{ r.version }}</td>
+            <td>{{ r.version_description }}</td>
+
+            <td>
+              {% if r.declaration_type %}
+                {{ r.declaration_type }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if r.ready %}
+                <span class="badge bg-info text-dark">Yes</span>
+              {% else %}
+                <span class="badge bg-secondary">No</span>
+              {% endif %}
+            </td>
+
+            <td>{{ r.op_count }}</td>
+
+            <td>
+              {% if r.status %}
+                <span class="badge bg-success">Yes</span>
+              {% else %}
+                <span class="badge bg-secondary">No</span>
+              {% endif %}
+            </td>
+
+            <td>{{ r.created_at|date:"d.m.Y. H:i" }}</td>
+            <td>{{ r.updated_at|date:"d.m.Y. H:i" }}</td>
+
+            <td class="text-end">
+              <a href="{% url 'planners:routing_operation_by_routing' r.id %}" class="btn btn-sm btn-outline-info me-1">View</a>
+              <a href="{% url 'planners:routing_edit' r.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              <a href="{% url 'planners:routing_copy_step11' %}?from_routing_id={{ r.id }}" class="btn btn-sm btn-outline-danger ms-1" title="Quick copy (pre-filter by this subdepartment)">Copy</a>
+
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-4">No routings found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<style>
+.column-filter { min-width:60px; max-width:200px; font-size:.85rem; padding:2px 4px; }
+</style>
+
+<script>
+  $(function(){
+    window.initTableWithColumnFilters('#routing-table', {
+      pageLength: 25,
+      order: [[0, 'asc']]
+    });
+  });
+</script>
+
+<script>
+$(document).ready(function () {
+    let table = $('#routing-table');
+
+    // ako DataTable već postoji — unisti ga
+    if ($.fn.dataTable.isDataTable(table)) {
+        table.DataTable().destroy();
+    }
+
+    // ponovna inicijalizacija sa željenim default orderom
+    initTableWithColumnFilters('#routing-table', {
+        order: [[0, 'desc']]   // sort by ID desc
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Operator Logout{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+<!--  <h1 class="h3 mb-3">Operator logout</h1>-->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Team: {{ request.user.username }}</h1>
+  </div>
+
+  {% if messages %}
+    <div class="mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-2">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-header">
+      Logged in operators
+    </div>
+    <div class="card-body">
+      {% if active_sessions %}
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Badge</th>
+                <th>Name</th>
+                <th>Login actual</th>
+                <th>Login team date</th>
+                <th>Login team time</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in active_sessions %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ s.operator.badge_num }}</td>
+                  <td>{{ s.operator.name }}</td>
+                  <td>{{ s.login_actual|date:"d.m.Y H:i:s" }}</td>
+                  <td>{{ s.login_team_date|date:"d.m.Y" }}</td>
+                  <td>{{ s.login_team_time|time:"H:i:s" }}</td>
+                  <td>
+                    <form method="post" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="session_id" value="{{ s.id }}">
+                      <button type="submit" class="btn btn-sm btn-danger"
+                              onclick="return confirm('Da li ste sigurni da želite da odjavite operatera {{ s.operator.name|escapejs }}?');">
+                        Logout
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No operators logged in.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

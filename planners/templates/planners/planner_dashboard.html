@@ -1,0 +1,172 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Planner Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Planner Dashboard</h1>
+  </div>
+
+  <div class="row row-cols-1 row-cols-md-5 g-3">
+
+    {# 1. SUBDEPARTMENTS – nema status polje, samo total #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-success">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Subdepartments</h5>
+          <p class="display-6 mb-1">{{ subdepartments_count }}</p>
+          <p class="text-muted small mb-3">Total subdepartments.</p>
+          <a href="{% url 'planners:subdepartment_list' %}" class="btn btn-outline-success btn-sm mt-auto">Manage subdepartments</a>
+        </div>
+      </div>
+    </div>
+
+    {# 2. TEAM USERS – total + active #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-success">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Team Users</h5>
+          <p class="display-6 mb-1">{{ users_count }}</p>
+          <p class="text-muted small mb-3">User accounts for teams.</p>
+          <p class="text-muted small mb-1">Active: {{ users_active_count }} &nbsp;|&nbsp; Inactive: {{ users_inactive_count }}</p>
+          <a href="{% url 'planners:user_list' %}" class="btn btn-outline-success btn-sm mt-auto">Manage users</a>
+        </div>
+      </div>
+    </div>
+
+    {# 3. OPERATORS – total + act #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-success">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Operators</h5>
+          <p class="display-6 mb-1">{{ operators_count }}</p>
+          <p class="text-muted small mb-3">Operators from Inteos.</p>
+          <p class="text-muted small mb-1">Active: {{ operators_active_count }} &nbsp;|&nbsp; Inactive: {{ operators_inactive_count }}</p>
+          <a href="{% url 'planners:operator_list' %}" class="btn btn-outline-success btn-sm mt-auto">Manage operators</a>
+        </div>
+      </div>
+    </div>
+
+    {# 4. TEAM CALENDAR – total #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-success">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Team Calendar</h5>
+          <p class="display-6 mb-1">{{ calendar_count }}</p>
+          <p class="text-muted small mb-3">Calendar entries (team shifts).</p>
+          <a href="{% url 'planners:calendar_list' %}" class="btn btn-outline-success btn-sm mt-auto">View calendar</a>
+        </div>
+      </div>
+    </div>
+
+    {# 5. OPERATOR LOGINS – ACTIVE + ostali statusi #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-primary">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Operator Logins</h5>
+          <p class="display-6 mb-1">{{ active_operator_login_count }}</p>
+          <p class="text-muted small mb-3">ACTIVE operator logins.</p>
+          <p class="text-muted small mb-1">Completed: {{ login_completed_count }}<br>Ignore: {{ login_ignore_count }} &nbsp;|&nbsp; Error: {{ login_error_count }}</p>
+          <a href="{% url 'planners:login_operator_list' %}" class="btn btn-outline-primary btn-sm mt-auto">View logins</a>
+        </div>
+      </div>
+    </div>
+
+    {# 6. PRO – total + active status #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-danger">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">PRO</h5>
+          <p class="display-6 mb-1">{{ pro_count }}</p>
+          <p class="text-muted small mb-3">Production orders.</p>
+          <p class="text-muted small mb-1">Active: {{ pro_active_count }} &nbsp;|&nbsp; Inactive: {{ pro_inactive_count }}</p>
+          <a href="{% url 'planners:pro_list' %}" class="btn btn-outline-danger btn-sm mt-auto">Manage PRO</a>
+        </div>
+      </div>
+    </div>
+
+    {# 7. ROUTINGS – total + active + ready #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-warning">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Routings</h5>
+          <p class="display-6 mb-1">{{ routing_count }}</p>
+          <p class="text-muted small mb-3">Routings <br> SKU / Subdepartment / Version.</p>
+          <p class="text-muted small mb-1">Active: {{ routing_active_count }} &nbsp;|&nbsp; Inactive: {{ routing_inactive_count }}</p>
+          <p class="text-muted small mb-1">Ready: {{ routing_ready_count }} &nbsp;|&nbsp; Not ready: {{ routing_not_ready_count }}</p>
+          <a href="{% url 'planners:routing_list' %}" class="btn btn-outline-warning btn-sm mt-auto">Manage routings</a>
+        </div>
+      </div>
+    </div>
+
+    {# 8. OPERATIONS – total + active #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-warning">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Operations</h5>
+          <p class="display-6 mb-1">{{ operation_count }}</p>
+          <p class="text-muted small mb-3">Operations per subdepartment.</p>
+          <p class="text-muted small mb-1">Active: {{ operation_active_count }} &nbsp;|&nbsp; Inactive: {{ operation_inactive_count }}</p>
+          <a href="{% url 'planners:operation_list' %}" class="btn btn-outline-warning btn-sm mt-auto">Manage operations</a>
+        </div>
+      </div>
+    </div>
+
+    {# 9. ROUTING OPERATIONS – samo total (nema status/ready) #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-warning">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Routing Operations</h5>
+          <p class="display-6 mb-1">{{ routing_operation_count }}</p>
+          <p class="text-muted small mb-3">Connection between routing and operation.</p>
+          <a href="{% url 'planners:routing_operation_list' %}" class="btn btn-outline-warning btn-sm mt-auto">Manage routing ops</a>
+        </div>
+      </div>
+    </div>
+
+    {# 10. SYSTEM OVERVIEW – total sum #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-info">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">System Overview</h5>
+          <p class="fs-4 mb-1">{{ system_total_count }}</p>
+          <p class="text-muted small mb-3">Total master data & planning records.</p>
+          <a href="{% url 'planners:calendar_list' %}" class="btn btn-outline-info btn-sm mt-auto disabled">Open planning tools</a>
+        </div>
+      </div>
+    </div>
+
+    {# ---------- Treći red: ovde stavimo Declarations kao prvu karticu trećeg reda ---------- #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-secondary">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Declarations</h5>
+          <p class="display-6 mb-1">{{ declarations_count }}</p>
+          <p class="text-muted small mb-2">Declarations submitted today.</p>
+
+          {% if declarations_qty_by_user %}
+            <div class="text-start small mb-3 w-100">
+              <strong>Qty by team:</strong>
+              <ul class="list-unstyled mb-0 mt-1">
+                {% for item in declarations_qty_by_user %}
+                  <li>{{ item.teamuser__username }} — {{ item.total_qty }} </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <p class="text-muted small mb-3">No declarations recorded today.</p>
+          {% endif %}
+
+          <a href="{% url 'planners:declaration_list' %}" class="btn btn-outline-secondary btn-sm mt-auto">Manage declarations</a>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+{% endblock %}

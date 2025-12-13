@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+{% load static %}
+
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/logo.png' %}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Wip Tracking App - Gordon{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/select2.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/jquery.dataTables.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/fixedHeader.dataTables.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+
+    <style>
+      .django-messages-overlay { position: fixed; top: 70px; right: 20px; z-index: 9999; display:flex; flex-direction:column; gap:.5rem; }
+      .django-message-toast { min-width:280px; max-width:420px; border-radius:.6rem; padding:.5rem .75rem .6rem; color:#0f172a; background:#e0f2fe; box-shadow:0 10px 20px rgba(15,23,42,.25); border-left:4px solid #0ea5e9; font-size:.9rem; animation: djangoToastSlideIn .25s ease-out; }
+      .django-message-header{ display:flex; justify-content:space-between; align-items:center; font-weight:600; margin-bottom:.2rem; }
+      .django-message-body{ font-size:.85rem; }
+      .django-message-hide{ opacity:0; transform:translateY(-6px); transition:opacity .4s ease, transform .4s ease; }
+      @keyframes djangoToastSlideIn { from{ opacity:0; transform:translateY(-10px) translateX(10px);} to{opacity:1; transform:translateY(0);} }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{% url 'core:main_page' %}">&nbsp;&nbsp; Wip Tracking &nbsp;&nbsp;</a>
+    <div class="collapse navbar-collapse justify-content-between">
+      <ul class="navbar-nav">
+        {% if user.is_authenticated %}
+          {% if is_admin %}<li class="nav-item"></li>{% endif %}
+          {% if is_planner %}<li class="nav-item"></li>{% endif %}
+        {% endif %}
+      </ul>
+    </div>
+    <div class="collapse navbar-collapse justify-content-end">
+      <ul class="navbar-nav">
+        {% if user.is_authenticated %}
+          <li class="nav-item"><span class="nav-link"><b>{{ user.username }}</b></span></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'core:logout' %}">Logout</a></li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'core:login' %}">Login</a></li>
+        {% endif %}
+        &nbsp;&nbsp;
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  {% if messages %}
+    <div id="django-messages-overlay" class="django-messages-overlay">
+      {% for message in messages %}
+        <div class="django-message-toast django-message-{{ message.tags|default:'info' }}">
+          <div class="django-message-header">
+            <span>{{ message.tags|default:'Info'|title }}</span>
+            <button type="button" class="btn-close" aria-label="Close" data-dismiss="django-message"></button>
+          </div>
+          <div class="django-message-body">{{ message }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'js/select2.min.js' %}"></script>
+<script src="{% static 'js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'js/dataTables.fixedHeader.min.js' %}"></script>
+<script src="{% static 'js/xlsx.full.min.js' %}"></script>
+
+{% block scripts %}
+{{ block.super }}
+
+<script>
+(function($){
+  // Init Select2 globally (except .no-select2)
+  $(function(){
+    $('select').not('.no-select2').each(function(){
+      var $sel = $(this);
+      if ($sel.hasClass('select2-hidden-accessible')) {
+        try { $sel.select2('destroy'); } catch(e){}
+      }
+      var allowSearch = $sel.data('allow-search');
+      if (typeof allowSearch === 'undefined') allowSearch = true;
+      else allowSearch = String(allowSearch).toLowerCase() !== 'false';
+      var placeholder = $sel.data('placeholder') || $sel.attr('placeholder') || '— Select —';
+      $sel.select2({ width:'100%', placeholder: placeholder, allowClear: true, minimumResultsForSearch: allowSearch ? 0 : Infinity, dropdownParent: $('body') });
+    });
+    $(document).on('select2:open', function(){ const s = document.querySelector('.select2-container--open .select2-search__field'); if (s) s.focus(); });
+  });
+
+  // Custom sorting for dd.mm.yyyy. or dd.mm.yyyy formats
+    jQuery.extend(jQuery.fn.dataTable.ext.type.order, {
+        "date-eu-pre": function (dateStr) {
+            if (!dateStr) return 0;
+
+            // Remove trailing dot if exists
+            dateStr = dateStr.trim().replace(/\.$/, "");
+
+            // Expect dd.mm.yyyy
+            let parts = dateStr.split(".");
+            if (parts.length !== 3) return 0;
+
+            let day = parseInt(parts[0], 10);
+            let month = parseInt(parts[1], 10);
+            let year = parseInt(parts[2], 10);
+
+            return year * 10000 + month * 100 + day;
+        },
+        "date-eu-asc": function (a, b) { return a - b; },
+        "date-eu-desc": function (a, b) { return b - a; }
+    });
+
+  // Init DataTable + column filters for tables that opt-in with .auto-init-filters
+  window.initTableWithColumnFilters = function(selector, dtOptions){
+    var $table = $(selector);
+    if (!$table.length) return null;
+
+    var dt;
+    if ($.fn.dataTable.isDataTable($table)) {
+      dt = $table.DataTable();
+    } else {
+      var defaults = { pageLength:20, scrollX:true, scrollCollapse:true, orderCellsTop:true, fixedHeader:true };
+      dt = $table.DataTable($.extend({}, defaults, dtOptions || {}));
+      try { if ($.fn.dataTable.FixedHeader && !dt.fixedHeader) new $.fn.dataTable.FixedHeader(dt); } catch(e){ console.warn('FixedHeader init skipped', e); }
+    }
+
+    // helper: find original filter element inside THIS table (last thead row)
+    function origFilterFor(tableEl, colIdx) {
+      var $f = $(tableEl).find('thead tr').last().find('.column-filter').filter('[data-column="'+colIdx+'"]').first();
+      if ($f.length) return $f;
+      // fallback by position
+      var $pos = $(tableEl).find('thead tr').last().find('.column-filter').eq(colIdx);
+      return $pos.length ? $pos : null;
+    }
+
+    // We will handle ANY .column-filter event on the page, determine which opt-in table it belongs to
+    // and apply the search on that table's DataTable instance.
+    $(document).off('input.columnFilter change.columnFilter');
+    $(document).on('input.columnFilter change.columnFilter', '.column-filter', function(e){
+      e.stopPropagation();
+
+      var $tgt = $(this);
+      var colIdx = parseInt($tgt.attr('data-column'), 10);
+      if (isNaN(colIdx)) return;
+
+      // find the opt-in table that has an original filter for this column index
+      var chosenTable = null;
+      var chosenOrig = null;
+      $('table.auto-init-filters[id]').each(function(){
+        var $tbl = $(this);
+        var $orig = origFilterFor($tbl, colIdx);
+        if ($orig && $orig.length) { chosenTable = $tbl; chosenOrig = $orig; return false; }
+      });
+
+      if (!chosenTable) return; // not our table
+
+      // sync value into original filter (if event came from a cloned input)
+      var val = $tgt.val();
+      if (chosenOrig && chosenOrig.length && chosenOrig[0] !== $tgt[0]) {
+        if (chosenOrig.val() !== val) chosenOrig.val(val);
+      }
+
+      // apply search to the correct DataTable instance
+      try {
+        var tableDt = chosenTable.DataTable();
+        var safe = String(val || '').trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        tableDt.column(colIdx).search(safe, false, false).draw();
+      } catch (err) {
+        console.error('column search error', err);
+      }
+    });
+
+    // Prevent click in filters from triggering sort
+    $(document).on('click.disableSort mousedown.disableSort', 'table.auto-init-filters thead .column-filter', function(e){ e.stopPropagation(); });
+
+    // adjust columns on draw to keep FixedHeader aligned
+    dt.on('draw', function(){ try { dt.columns.adjust(); } catch(e){} });
+
+    return dt;
+  };
+
+  // Auto-init only for tables that explicitly opt in
+  $(function(){
+    $('table.auto-init-filters[id]').each(function(){
+
+        let id = '#' + $(this).attr('id');
+
+        // Try to read custom options from data attribute:
+        let opts = $(this).data("dt-options");
+
+        // If attribute is a JSON string — parse it
+        if (typeof opts === "string") {
+            try { opts = JSON.parse(opts); }
+            catch (e) { opts = {}; }
+        }
+
+        initTableWithColumnFilters(id, opts || {});
+    });
+
+  });
+
+})(jQuery);
+</script>
+
+<script>
+(function($){
+  // Klik na X -> sakrij toast
+  $(document).on('click', 'button[data-dismiss="django-message"]', function(e){
+    e.preventDefault();
+    var $toast = $(this).closest('.django-message-toast');
+    if (!$toast.length) return;
+    $toast.addClass('django-message-hide');
+    // ukloni posle animacije (isti tempo kao CSS transition)
+    setTimeout(function(){ $toast.remove(); }, 420);
+  });
+
+  // Takođe podržavamo data-bs-dismiss ako nekad promeniš atribut
+  $(document).on('click', 'button[data-bs-dismiss="django-message"], button[data-bs-dismiss="toast"]', function(e){
+    e.preventDefault();
+    var $toast = $(this).closest('.django-message-toast');
+    if (!$toast.length) return;
+    $toast.addClass('django-message-hide');
+    setTimeout(function(){ $toast.remove(); }, 420);
+  });
+
+  // Auto-hide: zatvori poruke posle N ms (po poruci, staggered)
+  $(function(){
+    var AUTO_HIDE_MS = 7000; // koliko ms da poruka stoji pre auto-hide (7s)
+    $('#django-messages-overlay .django-message-toast').each(function(i, el){
+      var $el = $(el);
+      // Ako želiš da neke poruke NE auto-hide-uju, stavi data-auto-hide="false" na toast div
+      var dataAuto = $el.data('auto-hide');
+      if (String(dataAuto).toLowerCase() === "false") return;
+      setTimeout(function(){
+        $el.addClass('django-message-hide');
+        setTimeout(function(){ $el.remove(); }, 420);
+      }, AUTO_HIDE_MS + (i*300));
+    });
+  });
+
+})(jQuery);
+</script>
+
+{% endblock %}
+</body>
+</html>

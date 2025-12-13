@@ -1,0 +1,147 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Operator Login{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+<!--  <h1 class="h3 mb-3">Operator login</h1>-->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Team: {{ request.user.username }}</h1>
+  </div>
+
+  {% if calendar_entry %}
+    {# smena postoji; boja iz shift_alert_class; slim alert + status desno #}
+    <div class="alert alert-{{ shift_alert_class }} d-flex justify-content-between align-items-center py-2 px-3 mb-3">
+      <div class="small">
+        <strong>Today's shift:</strong>
+        {{ calendar_entry.date|date:"d.m.Y" }}
+        &nbsp;|&nbsp;
+        {{ calendar_entry.shift_start|time:"H:i" }} – {{ calendar_entry.shift_end|time:"H:i" }}
+        {% if shift_state == "inactive" %}
+          &nbsp;|&nbsp; You can login only before shift start
+        {% endif %}
+      </div>
+
+      <div class="ms-3">
+        {% if shift_state == "active" %}
+          <span class="badge bg-light text-success border border-success">ACTIVE</span>
+        {% elif shift_state == "inactive" %}
+          <span class="badge bg-light text-warning border border-warning">OUTSIDE SHIFT HOURS</span>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {# nema smene za danas – slim, crveni alert, status desno #}
+    <div class="alert alert-danger d-flex justify-content-between align-items-center py-2 px-3 mb-3">
+      <div class="small">
+        <strong>No shift planned for today.</strong>
+        &nbsp;Operators cannot be logged in if shift is not set.
+      </div>
+      <div class="ms-3">
+        <span class="badge bg-light text-danger border border-danger">NO SHIFT</span>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- LOGIN FORMA -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="row g-2 align-items-end">
+
+          <!-- INPUT POLJE -->
+          <div class="col-md-4">
+            <label class="form-label" for="id_badge_num">Badge number</label>
+            {{ login_form.badge_num }}
+          </div>
+
+          <!-- LOGIN (levo) + SCAN (desno) -->
+          <div class="col-md-4 d-flex gap-2">
+
+            <!-- LOGIN LEFT -->
+            <button type="submit" id="login_submit" class="btn btn-primary flex-fill">
+              Login
+            </button>
+
+            <!-- SCAN RIGHT -->
+            <button type="button" class="btn btn-secondary flex-fill" onclick="openBarcodeScanner()">
+              Scan barcode
+            </button>
+
+          </div>
+
+        </div>
+
+        <script>
+          // Poziv Android barcode skenera
+          function openBarcodeScanner() {
+              if (window.Android && Android.openScanner) {
+                  Android.openScanner();
+              } else {
+                  alert("Scanner interface nije dostupan.");
+              }
+          }
+
+          // Helper – Android poziva ovo za auto popunu i auto login
+          function fillBadgeAndSubmit(val) {
+              var input = document.getElementById('id_badge_num');
+              if (!input) return;
+              input.value = val;
+
+              // Kratko čekanje da se UI osveži pa submit
+              setTimeout(function () {
+                  var loginBtn = document.getElementById('login_submit');
+                  if (loginBtn) loginBtn.click();
+                  else if (input.form) input.form.submit();
+              }, 80);
+          }
+        </script>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- TABELA AKTIVNIH OPERATERA -->
+  <div class="card">
+    <div class="card-header">
+      Logged in operators
+    </div>
+    <div class="card-body">
+      {% if active_sessions %}
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Badge</th>
+                <th>Name</th>
+                <th>Login actual</th>
+                <th>Login team date</th>
+                <th>Login team time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in active_sessions %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ s.operator.badge_num }}</td>
+                  <td>{{ s.operator.name }}</td>
+                  <td>{{ s.login_actual|date:"d.m.Y H:i:s" }}</td>
+                  <td>{{ s.login_team_date|date:"d.m.Y" }}</td>
+                  <td>{{ s.login_team_time|time:"H:i:s" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No operators logged in.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

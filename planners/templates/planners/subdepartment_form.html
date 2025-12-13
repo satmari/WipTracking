@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}{% if object %}Edit Subdepartment{% else %}Add Subdepartment{% endif %}{% endblock %}
+
+{% block content %}
+
+
+<div class="container mt-4">
+  <h1 class="h4 mb-3">
+    {% if object %}Edit Subdepartment{% else %}Add Subdepartment{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="col-md-6">
+          <label class="form-label">Subdepartment name</label>
+          {{ form.subdepartment|add_class:"form-control" }}
+          {{ form.subdepartment.errors }}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:subdepartment_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if object %}Save changes{% else %}Create{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

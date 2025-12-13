@@ -1,0 +1,48 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Copy routing – step 1{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="h4 mb-3">Copy routing – step 1/2</h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <!-- TARGET SKU -->
+        <div class="col-md-4">
+          <label class="form-label"><b>SKU for which to create routing</b></label>
+          {{ form.target_sku|add_class:"form-control" }}
+          {{ form.target_sku.errors }}
+          <small class="text-muted">
+            This is the new SKU that will receive copied routing operations.
+          </small>
+        </div>
+
+        <!-- SOURCE ROUTING -->
+        <div class="col-md-6">
+          <label class="form-label"><b>Routing from which to copy</b></label>
+          {{ form.source_routing|add_class:"form-select" }}
+          {{ form.source_routing.errors }}
+          <small class="text-muted">
+            Choose existing SKU / Subdepartment / Version to copy from.
+          </small>
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:routing_list' %}" class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            Next
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
