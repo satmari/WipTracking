@@ -2038,22 +2038,18 @@ class LoginOperatorDeleteView(PlannerAccessMixin, DeleteView):
 # ---------- Manual logout operators  ---------
 
 
+
 class ManualLogoutOperatorsView(LoginRequiredMixin, View):
     """
-    Manual auto-logout for ACTIVE LoginOperator sessions from previous days.
+    Manual auto-logout for ACTIVE LoginOperator sessions.
 
     Behavior:
-      - Selects LoginOperator objects with status="ACTIVE" and login_team_date < today.
-      - For each session:
-          * Finds Calendar entry for that team_user on the session.login_team_date.
-          * If Calendar entry exists and has shift_end, sets:
-               logoff_actual = now (UTC)
-               logoff_team_date = calendar.date
-               logoff_team_time = calendar.shift_end
-               status = "COMPLETED"
-            and saves the session.
-          * Otherwise it skips and records a reason (no calendar / missing shift_end).
-      - Writes a human-readable summary + per-session details to
+      - Selects ACTIVE sessions with login_team_date <= today.
+      - For previous days: always completes the session.
+      - For today:
+          * completes ONLY if now > calendar.shift_end
+          * otherwise skips (shift still active)
+      - Writes a detailed log to:
         <project_root>/log/ManualLogoutOperators.txt
     """
 
@@ -2064,10 +2060,9 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
         now_local = timezone.localtime(now_utc)
         today = now_local.date()
 
-        # pick ACTIVE sessions that have login_team_date earlier than today
         sessions_qs = (
             LoginOperator.objects
-            .filter(status="ACTIVE", login_team_date__lt=today)
+            .filter(status="ACTIVE", login_team_date__lte=today)
             .select_related("team_user", "operator")
         )
 
@@ -2075,11 +2070,11 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
         completed = 0
         skipped_no_calendar = 0
         skipped_no_shift_end = 0
+        skipped_shift_not_finished = 0
         failures = []
 
-        # collect details for logging
-        completed_details = []  # list of dicts: {id, operator, team_user, login_date, shift_end}
-        skipped_details = []    # optional detail list for skipped (reason)
+        completed_details = []
+        skipped_details = []
 
         for session in sessions_qs:
             login_date = session.login_team_date
@@ -2110,38 +2105,47 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
                     })
                     continue
 
+                # If session is today, check if shift already ended
+                if login_date == today:
+                    shift_end_dt = timezone.make_aware(
+                        datetime.datetime.combine(login_date, calendar_entry.shift_end),
+                        timezone.get_current_timezone()
+                    )
+
+                    if now_local < shift_end_dt:
+                        skipped_shift_not_finished += 1
+                        skipped_details.append({
+                            "id": session.id,
+                            "reason": "shift not finished yet",
+                            "team_user": getattr(session.team_user, "username", None),
+                            "login_date": login_date,
+                        })
+                        continue
+
                 shift_end = calendar_entry.shift_end
 
-                # perform update in atomic block
                 with transaction.atomic():
                     session.logoff_actual = now_utc
                     session.logoff_team_date = calendar_entry.date
                     session.logoff_team_time = shift_end
                     session.status = "COMPLETED"
 
-                    session.save(
-                        update_fields=[
-                            "logoff_actual",
-                            "logoff_team_date",
-                            "logoff_team_time",
-                            "status",
-                            "updated_at",
-                        ]
-                    )
+                    session.save(update_fields=[
+                        "logoff_actual",
+                        "logoff_team_date",
+                        "logoff_team_time",
+                        "status",
+                        "updated_at",
+                    ])
 
                 completed += 1
 
-                # prepare human-readable operator label (badge + name if available)
-                op_label = None
-                try:
-                    if session.operator:
-                        # change attribute names if your Operator model differs
-                        badge = getattr(session.operator, "badge_num", "")
-                        name = getattr(session.operator, "name", "")
-                        op_label = f"{badge} - {name}".strip(" -")
-                    else:
-                        op_label = "N/A"
-                except Exception:
+                # Human-readable operator label
+                if session.operator:
+                    badge = getattr(session.operator, "badge_num", "")
+                    name = getattr(session.operator, "name", "")
+                    op_label = f"{badge} - {name}".strip(" -")
+                else:
                     op_label = "N/A"
 
                 completed_details.append({
@@ -2153,84 +2157,76 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
                 })
 
             except Exception as e:
-                # record failure but continue processing other sessions
                 err = str(e)
                 if len(err) > 300:
                     err = err[:297] + "..."
                 failures.append((session.id, err))
-                continue
 
-        ignored = skipped_no_calendar + skipped_no_shift_end
+        ignored = skipped_no_calendar + skipped_no_shift_end + skipped_shift_not_finished
 
-        # Build summary lines
+        # Summary
         header = f"Manual auto-logout finished at {now_local.strftime('%d.%m.%Y %H:%M:%S')}:"
         summary_lines = [
             header,
             f"Total ACTIVE sessions considered: {total}",
             f"  • {completed} session(s) COMPLETED",
-            f"  • {ignored} skipped ({skipped_no_shift_end} missing shift_end, {skipped_no_calendar} no Calendar)",
+            f"  • {ignored} skipped "
+            f"({skipped_shift_not_finished} shift not finished, "
+            f"{skipped_no_shift_end} missing shift_end, "
+            f"{skipped_no_calendar} no Calendar)",
         ]
 
         if failures:
             summary_lines.append(f"  • {len(failures)} session(s) failed due to errors")
 
-        # Prepare detailed section for completed sessions
         details_lines = []
         if completed_details:
-            details_lines.append("")
-            details_lines.append("Completed sessions:")
+            details_lines.extend(["", "Completed sessions:"])
             for d in completed_details:
                 details_lines.append(
-                    f"  - ID {d['id']}: Operator [{d['operator']}], TeamUser [{d['team_user']}], "
-                    f"Login date [{d['login_team_date']}], Logoff team time set to [{d['logoff_team_time']}]"
+                    f"  - ID {d['id']}: Operator [{d['operator']}], "
+                    f"TeamUser [{d['team_user']}], "
+                    f"Login date [{d['login_team_date']}], "
+                    f"Logoff team time [{d['logoff_team_time']}]"
                 )
 
-        # Prepare skipped details (optional)
         if skipped_details:
-            details_lines.append("")
-            details_lines.append("Skipped sessions:")
+            details_lines.extend(["", "Skipped sessions:"])
             for s in skipped_details:
                 details_lines.append(
-                    f"  - ID {s['id']}: TeamUser [{s.get('team_user')}], Login date [{s.get('login_date')}], Reason: {s['reason']}"
+                    f"  - ID {s['id']}: TeamUser [{s.get('team_user')}], "
+                    f"Login date [{s.get('login_date')}], "
+                    f"Reason: {s['reason']}"
                 )
 
-        # Prepare failures section
         failure_lines = []
         if failures:
-            failure_lines.append("")
-            failure_lines.append("Failures (exceptions):")
+            failure_lines.extend(["", "Failures (exceptions):"])
             for sid, err in failures:
                 failure_lines.append(f"  - ID {sid}: {err}")
 
-        # final message for UI (single-line)
-        ui_msg = "Manual auto-logout finished: " \
-                 f"{completed} completed, {ignored} skipped, {len(failures)} failed."
+        messages.info(
+            request,
+            f"Manual auto-logout finished: "
+            f"{completed} completed, {ignored} skipped, {len(failures)} failed."
+        )
 
-        # flash small info message to UI
-        messages.info(request, ui_msg)
-
-        # Write to logfile
+        # Write logfile
         try:
-            log_dir = os.path.dirname(self.LOG_FILE)
-            os.makedirs(log_dir, exist_ok=True)
-
+            os.makedirs(os.path.dirname(self.LOG_FILE), exist_ok=True)
             with open(self.LOG_FILE, "a", encoding="utf-8") as f:
                 f.write("\n" + "=" * 80 + "\n")
-                for line in summary_lines:
+                for line in summary_lines + details_lines + failure_lines:
                     f.write(line + "\n")
-                if details_lines:
-                    for line in details_lines:
-                        f.write(line + "\n")
-                if failure_lines:
-                    for line in failure_lines:
-                        f.write(line + "\n")
                 f.write("=" * 80 + "\n")
-
         except Exception as log_err:
-            # If logging fails, still show a warning but do not break the main flow
-            messages.error(request, f"Warning: could not write manual-logout log file: {log_err}")
+            messages.error(
+                request,
+                f"Warning: could not write manual-logout log file: {log_err}"
+            )
 
         return redirect("planners:login_operator_list")
+
 
 
 # ---------- DECLARATIONS ----------
