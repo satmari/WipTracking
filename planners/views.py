@@ -622,10 +622,22 @@ class CalendarBulkDeleteView(PlannerAccessMixin, TemplateView):
 
 
 class ProForm(forms.ModelForm):
-    # extra fields used only in create mode to build SKU
-    style = forms.CharField(required=False, max_length=9, widget=forms.TextInput(attrs={"class":"form-control"}))
-    color = forms.CharField(required=False, max_length=4, widget=forms.TextInput(attrs={"class":"form-control"}))
-    size = forms.CharField(required=False, max_length=4, widget=forms.TextInput(attrs={"class":"form-control"}))
+    # helper fields used only in create mode to build SKU
+    style = forms.CharField(
+        required=False,
+        max_length=9,
+        widget=forms.TextInput(attrs={"class": "form-control"})
+    )
+    color = forms.CharField(
+        required=False,
+        max_length=4,
+        widget=forms.TextInput(attrs={"class": "form-control"})
+    )
+    size = forms.CharField(
+        required=False,
+        max_length=4,
+        widget=forms.TextInput(attrs={"class": "form-control"})
+    )
 
     class Meta:
         model = Pro
@@ -640,27 +652,24 @@ class ProForm(forms.ModelForm):
             "skeda",
         ]
         widgets = {
-            "del_date": forms.DateInput(attrs={"type": "date","class": "form-control"}),
-            "sku": forms.TextInput(attrs={"class":"form-control"}),  # will be hidden in create via view if desired
+            "del_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "sku": forms.TextInput(attrs={"class": "form-control"}),  # hidden in create
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # In create mode, we prefer style/color/size to build sku and hide model sku input
+        # CREATE mode
         if not (self.instance and self.instance.pk):
-            # hide sku model field (but keep it in POST)
             self.fields["sku"].widget = forms.HiddenInput()
         else:
-            # in edit mode, remove helper fields (style/color/size)
+            # EDIT mode
             self.fields.pop("style", None)
             self.fields.pop("color", None)
             self.fields.pop("size", None)
 
     def clean_style(self):
-        v = (self.cleaned_data.get("style") or "").strip()
-        # right-pad to 9 chars with spaces (but store trimmed later)
-        return v
+        return (self.cleaned_data.get("style") or "").strip()
 
     def clean_color(self):
         return (self.cleaned_data.get("color") or "").strip()
@@ -670,24 +679,22 @@ class ProForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        # If creating and style/color/size provided, build sku
-        if not (instance.pk):
-            style = (self.cleaned_data.get("style") or "")
-            color = (self.cleaned_data.get("color") or "")
-            size = (self.cleaned_data.get("size") or "")
 
-            # ensure style is right-padded to 9 chars with spaces
-            if len(style) < 9:
-                style_padded = style.ljust(9)
-            else:
-                style_padded = style[:9]
+        # ONLY on create → build SKU
+        if not instance.pk:
+            style = self.cleaned_data.get("style", "")
+            color = self.cleaned_data.get("color", "")
+            size = self.cleaned_data.get("size", "")
 
-            # color and size — take up to 4 chars (no padding for color/size as requested)
-            color_trunc = color[:4]
-            size_trunc = size[:4]
+            # style: exactly 9 chars (right-pad with spaces)
+            style_part = style[:9].ljust(9)
 
-            sku_value = f"{style_padded}{color_trunc}{size_trunc}"
-            # optionally strip trailing spaces? You said style is padded but sku stored as combined - keep as is:
+            # color: exactly 4 chars (right-pad with spaces)
+            color_part = color[:4].ljust(4)
+
+            # size: no padding, no trimming (just append)
+            sku_value = f"{style_part}{color_part}{size}"
+
             instance.sku = sku_value
 
         if commit:
@@ -773,33 +780,8 @@ class ProCreateView(PlannerAccessMixin, ProSubdepartmentMixin, CreateView):
         return context
 
     def form_valid(self, form):
-        # Only in create mode (we added style/color/size fields)
-        cleaned = form.cleaned_data
-
-        style = cleaned.get("style") or ""
-        color = cleaned.get("color") or ""
-        size = cleaned.get("size") or ""
-
-        # Validation: ensure color and size are not longer than allowed (form also restricts, but extra safe-check)
-        if len(color) > 4:
-            form.add_error("color", "Color must be at most 4 characters.")
-            return self.form_invalid(form)
-        if len(size) > 4:
-            form.add_error("size", "Size must be at most 4 characters.")
-            return self.form_invalid(form)
-        if len(style) > 9:
-            form.add_error("style", "Style must be at most 9 characters.")
-            return self.form_invalid(form)
-
-        # Pad style on the right to length 9 with spaces
-        style_padded = style.ljust(9)
-
-        # Compose SKU and assign to instance
-        composed_sku = f"{style_padded}{color}{size}"
-        form.instance.sku = composed_sku
-
-        # proceed as before: save object, update subdepartments, messages
         response = super().form_valid(form)
+
         selected = self.request.POST.getlist("subdepartments")
         self._update_subdepartments(self.object, selected)
 
