@@ -17,6 +17,15 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+DJANGO_ENV = config('DJANGO_ENV', default='dev')
+DEBUG = config('DEBUG', cast=bool, default=False)
+
+_force_script = config('FORCE_SCRIPT_NAME', default='')
+FORCE_SCRIPT_NAME = _force_script or None
+
+STATIC_URL = config('STATIC_URL', default='/static/')
+SESSION_COOKIE_PATH = config('SESSION_COOKIE_PATH', default='/')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -24,11 +33,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-^thr6bgy-&-ylmw7r(j)k8c8($9q+6lyd!qw5ecifjl9$yeyou'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 ALLOWED_HOSTS = ['172.27.161.193', 'localhost', '127.0.0.1']
-FORCE_SCRIPT_NAME = '/wiptracking'
+
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -188,7 +195,7 @@ TIME_INPUT_FORMATS = ["%H:%M"]
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = '/static/wiptracking/'
+
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -207,4 +214,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ]
 
 SESSION_COOKIE_NAME = 'prep_sessionid'
-SESSION_COOKIE_PATH = '/wiptracking/'
