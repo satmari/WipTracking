@@ -542,10 +542,13 @@ class DeclarationWizardView(TeamAccessMixin, View):
                 return redirect(reverse("teams:declare_output_save"))
             # otherwise prepare operators queryset from today's active sessions for this team
             today = timezone.localdate()
-            active_sessions = LoginOperator.objects.filter(
-                team_user=request.user, status="ACTIVE", login_team_date=today
+            sessions_today = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=today,
+                status__in=["ACTIVE", "COMPLETED"],
             ).select_related("operator")
-            ops_qs = Operator.objects.filter(id__in=[s.operator_id for s in active_sessions])
+
+            ops_qs = Operator.objects.filter(id__in=sessions_today.values_list("operator_id", flat=True)).distinct()
             form = _Step5OperatorsForm(queryset=ops_qs, initial={"operators": wip.get("operators", [])})
         else:
             messages.error(request, "Invalid step.")
@@ -604,10 +607,15 @@ class DeclarationWizardView(TeamAccessMixin, View):
                     return redirect(f"{reverse('teams:declare_output')}?step=5")
         elif step == 5:
             today = timezone.localdate()
-            active_sessions = LoginOperator.objects.filter(
-                team_user=request.user, status="ACTIVE", login_team_date=today
-            ).select_related("operator")
-            ops_qs = Operator.objects.filter(id__in=[s.operator_id for s in active_sessions])
+
+            sessions_today = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=today,
+                status__in=["ACTIVE", "COMPLETED"],
+            )
+
+            ops_qs = Operator.objects.filter(id__in=sessions_today.values_list("operator_id", flat=True)).distinct()
+
             form = _Step5OperatorsForm(request.POST, queryset=ops_qs)
             if form.is_valid():
                 selected_ids = list(form.cleaned_data["operators"].values_list("id", flat=True))

@@ -4,92 +4,107 @@
 {% block title %}Declare output — Planner wizard (Step {{ step }}){% endblock %}
 
 {% block extra_head %}
-  <link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
-  <style>
-    /* Minimal styling adapted from teams wizard */
-    .declaration-card .card-body { padding: 1.25rem; }
-    .declaration-form-label { font-weight: 600; display:block; margin-bottom: .35rem; }
-    .wizard-step-title { font-size: 1.25rem; font-weight:700; }
-    .wizard-progress { height: 12px; border-radius:999px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.05); }
-    .wizard-progress .progress-bar { transition: width .35s ease; }
+<link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .declaration-card .card-body { padding: 1.25rem; }
+  .declaration-form-label { font-weight: 600; display:block; margin-bottom: .35rem; }
 
-    .declaration-card form select,
-    .declaration-card form input[type="text"],
-    .declaration-card form input[type="number"],
-    .declaration-card form input[type="date"],
-    .declaration-card form input[type="time"],
-    .declaration-card .form-control {
-      width: 100%;
-      padding: .55rem .75rem;
-      border: 1px solid #d1d5db;
-      border-radius: .5rem;
-      background: #fff;
-      box-shadow: none;
-      font-size: .95rem;
-    }
-    .declaration-card form select:focus,
-    .declaration-card form input:focus {
-      outline: none;
-      border-color: #86b7ff;
-      box-shadow: 0 0 0 .15rem rgba(13,110,253,.12);
-    }
+  .wizard-step-title { font-size: 1.25rem; font-weight:700; }
+  .wizard-progress {
+    height: 12px;
+    border-radius:999px;
+    overflow:hidden;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  }
+  .wizard-progress .progress-bar { transition: width .35s ease; }
 
-    .ops-list { padding: .35rem; border-radius:.45rem; background: #fbfcfd; }
-    .ops-list .form-check { display:flex; align-items:center; gap:.8rem; margin-bottom:.6rem; padding:.45rem .5rem; border-radius:.4rem; }
-    .ops-list .form-check input[type="checkbox"] { width:24px; height:24px; margin:0; transform:scale(1.15); }
-    .ops-list .form-check label { margin:0; font-weight:600; font-size:1rem; }
+  .declaration-card form select,
+  .declaration-card form input[type="text"],
+  .declaration-card form input[type="number"],
+  .declaration-card form input[type="date"],
+  .declaration-card form input[type="time"],
+  .declaration-card .form-control {
+    width: 100%;
+    padding: .55rem .75rem;
+    border: 1px solid #d1d5db;
+    border-radius: .5rem;
+    background: #fff;
+    font-size: .95rem;
+  }
 
-    .ops-toolbar { display:flex; justify-content:flex-end; gap:.5rem; margin-bottom:.5rem; }
-    .ops-toolbar .btn { padding:.28rem .6rem; font-size:.875rem; }
+  .declaration-card form select:focus,
+  .declaration-card form input:focus {
+    outline: none;
+    border-color: #86b7ff;
+    box-shadow: 0 0 0 .15rem rgba(13,110,253,.12);
+  }
 
-    @media (max-width:767px) {
-      .wizard-progress { max-width:100%; }
-    }
+  /* Operators */
+  .ops-list {
+    padding: .35rem;
+    border-radius:.45rem;
+    background: #fbfcfd;
+  }
+  .ops-list .form-check {
+    display:flex;
+    align-items:center;
+    gap:.8rem;
+    margin-bottom:.6rem;
+    padding:.45rem .5rem;
+    border-radius:.4rem;
+  }
+  .ops-list .form-check input[type="checkbox"] {
+    width:24px;
+    height:24px;
+    margin:0;
+    transform:scale(1.15);
+  }
+  .ops-list .form-check label {
+    margin:0;
+    font-weight:600;
+    font-size:1rem;
+  }
 
-    .wip-summary li { margin-bottom:.45rem; }
-    .wip-summary strong { display:inline-block; width:110px; }
-  </style>
+  .ops-toolbar {
+    display:flex;
+    justify-content:flex-end;
+    gap:.5rem;
+    margin-bottom:.5rem;
+  }
+  .ops-toolbar .btn {
+    padding:.28rem .6rem;
+    font-size:.875rem;
+  }
+
+  .wip-summary li { margin-bottom:.45rem; }
+  .wip-summary strong { display:inline-block; width:110px; }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Declare output — Planner wizard</h1>
-    <div>
-      <a href="{% url 'planners:declaration_wizard_cancel' %}" class="btn btn-sm btn-outline-secondary">Back to list</a>
-    </div>
+    <a href="{% url 'planners:declaration_wizard_cancel' %}" class="btn btn-sm btn-outline-secondary">
+      Back to list
+    </a>
   </div>
-
-  {% if messages %}
-    <div class="mb-3">
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} mb-2">{{ message }}</div>
-      {% endfor %}
-    </div>
-  {% endif %}
 
   <div class="mb-4 text-center">
     <div class="wizard-step-title mb-2">
-      {% if step == 1 %}
-        Choose Team user
-      {% elif step == 2 %}
-        Choose PRO
-      {% elif step == 3 %}
-        Choose Routing
-      {% elif step == 4 %}
-        Choose Operation
-      {% elif step == 5 %}
-        Insert Quantity
-      {% else %}
-        Select Operators
-      {% endif %}
+      {% if step == 1 %}Choose Team user
+      {% elif step == 2 %}Choose PRO
+      {% elif step == 3 %}Choose Routing
+      {% elif step == 4 %}Choose Operation
+      {% elif step == 5 %}Insert Quantity
+      {% else %}Select Operators{% endif %}
     </div>
+
     <div class="text-muted small mb-2">Step {{ step }} of 6</div>
 
     <div class="progress wizard-progress mx-auto" style="max-width:600px;">
-      <div class="progress-bar bg-primary" role="progressbar"
-           style="width: {{ percent }}%;"
-           aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar bg-primary"
+           style="width: {{ percent }}%;"></div>
     </div>
   </div>
 
@@ -98,244 +113,136 @@
       <div class="card shadow-sm declaration-card mb-3">
         <div class="card-body">
 
-          <form method="post" novalidate id="planner-wizard-form">
+          <form method="post" novalidate>
             {% csrf_token %}
             <input type="hidden" name="step" value="{{ step }}">
 
             {% for field in form %}
               <div class="mb-3">
-                <label class="declaration-form-label" for="{{ field.id_for_label }}">
+                <label class="declaration-form-label">
                   {{ field.label }}{% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                 </label>
 
-                {# Render operators field normally. JS will add select-all for the appropriate widget. #}
-                {% if field.name == "operators" %}
-                  <div class="ops-list" id="ops-container-{{ forloop.counter }}">
-                    {{ field }}
+                {% if field.name == 'operators' %}
+                  <div class="ops-toolbar">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary js-ops-toggle"
+                            data-all="false">
+                      Check all
+                    </button>
+                  </div>
+
+                  <div class="ops-list">
+                    {% for checkbox in field %}
+                      <div class="form-check">
+                        {{ checkbox.tag }}
+                        <label for="{{ checkbox.id_for_label }}">
+                          {{ checkbox.choice_label }}
+                        </label>
+                      </div>
+                    {% endfor %}
                   </div>
                 {% else %}
-                  <div>
-                    {{ field }}
-                  </div>
+                  {{ field }}
                 {% endif %}
 
-                {% if field.help_text %}
-                  <div class="form-text small">{{ field.help_text }}</div>
-                {% endif %}
                 {% if field.errors %}
-                  <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+                  <div class="invalid-feedback d-block">
+                    {{ field.errors|striptags }}
+                  </div>
                 {% endif %}
               </div>
-            {% empty %}
-              <p>No form for this step.</p>
             {% endfor %}
 
-            <div class="d-flex justify-content-between align-items-center">
-              {% if step|add:"-1" >= 1 %}
-                <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
+            <div class="d-flex justify-content-between">
+              <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
+              {% if step < 6 %}
+                <button type="submit" class="btn btn-primary">Next →</button>
               {% else %}
-                <a class="btn btn-outline-secondary" href="{% url 'planners:declaration_wizard_cancel' %}">Cancel</a>
+                <button type="submit" class="btn btn-success">Save declaration</button>
               {% endif %}
-
-              <div>
-                {% if step < 6 %}
-                  <button type="submit" class="btn btn-primary">Next →</button>
-                {% else %}
-                  <button type="submit" class="btn btn-success">Save declaration</button>
-                {% endif %}
-              </div>
             </div>
-          </form>
 
+          </form>
         </div>
       </div>
     </div>
 
     <div class="col-lg-4">
-      <div class="card shadow-sm mb-3">
+      <div class="card shadow-sm">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">Current selection</h6>
-          <ul class="list-unstyled small mb-2 wip-summary">
+          <ul class="list-unstyled small wip-summary">
             <li><strong>Team user:</strong> {{ wip_preview.teamuser|default:"—" }}</li>
             <li><strong>Subdepartment:</strong> {{ wip_preview.subdepartment|default:"—" }}</li>
             <li><strong>PRO:</strong> {{ wip_preview.pro|default:"—" }}</li>
             <li><strong>Routing:</strong> {{ wip_preview.routing|default:"—" }}</li>
             <li><strong>Operation:</strong> {{ wip_preview.routing_operation|default:"—" }}</li>
             <li><strong>Qty:</strong> {{ wip_preview.qty|default:"—" }}</li>
-            <li>
-              <strong>Operators:</strong>
+            <li><strong>Operators:</strong>
               {% if wip_preview.operators %}
                 <ul class="list-unstyled mb-0">
                   {% for op in wip_preview.operators %}
                     <li>{{ op }}</li>
                   {% endfor %}
                 </ul>
-              {% else %}
-                —
-              {% endif %}
+              {% else %}—{% endif %}
             </li>
           </ul>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="{% static 'js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2.min.js' %}"></script>
+<script>
+(function($){
+  $(document).ready(function(){
 
-  <script>
-    (function($){
-      $(document).ready(function(){
+    $(document).on('click', '.js-ops-toggle', function(e){
+      e.preventDefault();
+      var $btn = $(this);
+      var selectAll = $btn.attr('data-all') === 'false';
+      var $inputs = $("input[type='checkbox'][name='operators']");
 
-        function initSelect2If(selector) {
-          var $el = $(selector);
-          if ($el.length && !$el.hasClass('select2-initialized')) {
-            $el.select2({ width: '100%', placeholder: $el.data('placeholder') || '', allowClear: true });
-            $el.addClass('select2-initialized');
-          }
-        }
+      if (selectAll) {
+        $inputs.prop('checked', true);
+        $btn.text('Uncheck all')
+            .attr('data-all','true')
+            .removeClass('btn-outline-primary')
+            .addClass('btn-outline-danger');
+      } else {
+        $inputs.prop('checked', false);
+        $btn.text('Check all')
+            .attr('data-all','false')
+            .removeClass('btn-outline-danger')
+            .addClass('btn-outline-primary');
+      }
+    });
 
-        initSelect2If('#id_pro');
-        initSelect2If('#id_routing');
-        initSelect2If('#id_routing_operation');
+    $(document).on('change', "input[type='checkbox'][name='operators']", function(){
+      var $all = $("input[type='checkbox'][name='operators']");
+      var $checked = $all.filter(':checked');
+      var $btn = $('.js-ops-toggle');
 
-        // Dynamically add "Select all" toggle for operators if appropriate
-        function ensureOperatorsToolbar() {
-          // find select multiple first (preferred)
-          var $selectOps = $("#id_w_operators, #id_operators");
-          var $container = $selectOps.closest('.ops-list');
-          if ($selectOps.length && $selectOps.is('select[multiple]')) {
-            // add toolbar if not present
-            if ($container.find('.js-ops-toggle-select').length === 0) {
-              var $toolbar = $('<div class="ops-toolbar mb-2"><button type="button" class="btn btn-sm btn-outline-primary js-ops-toggle-select">Select all</button></div>');
-              $container.prepend($toolbar);
-              // init Select2 on it (in case)
-              initSelect2If($selectOps);
-            }
-            return;
-          }
+      if ($checked.length === $all.length && $all.length > 0) {
+        $btn.text('Uncheck all')
+            .attr('data-all','true')
+            .removeClass('btn-outline-primary')
+            .addClass('btn-outline-danger');
+      } else {
+        $btn.text('Check all')
+            .attr('data-all','false')
+            .removeClass('btn-outline-danger')
+            .addClass('btn-outline-primary');
+      }
+    });
 
-          // fallback: check for checkbox list (Django's CheckboxSelectMultiple)
-          var $checkboxes = $container.find("input[type='checkbox'][name='operators']");
-          if ($checkboxes.length && $container.find('.js-ops-toggle-checkbox').length === 0) {
-            var $toolbar2 = $('<div class="ops-toolbar mb-2"><button type="button" class="btn btn-sm btn-outline-primary js-ops-toggle-checkbox">Select all</button></div>');
-            $container.prepend($toolbar2);
-          }
-        }
-
-        // Call it now and also when page shows (back/forward)
-        ensureOperatorsToolbar();
-        $(window).on('pageshow', function(){ ensureOperatorsToolbar(); initSelect2If('#id_pro'); initSelect2If('#id_routing'); initSelect2If('#id_routing_operation'); });
-
-        // Handler for select2-based Select all / Unselect all
-        $(document).on('click', '.js-ops-toggle-select', function(e){
-          e.preventDefault();
-          var $btn = $(this);
-          var $select = $btn.closest('.ops-list').find('select[multiple]');
-          if (!$select.length) return;
-          var allVals = $select.find('option').map(function(){ return this.value; }).get().filter(function(v){ return v !== ""; });
-          var current = $select.val() || [];
-          // If everything already selected -> unselect, else select all
-          if (allVals.length > 0 && current.length === allVals.length) {
-            $select.val([]).trigger('change');
-            $btn.text('Select all').removeClass('btn-outline-danger').addClass('btn-outline-primary');
-          } else {
-            $select.val(allVals).trigger('change');
-            $btn.text('Unselect all').removeClass('btn-outline-primary').addClass('btn-outline-danger');
-          }
-        });
-
-        // Handler for checkbox-based Select all / Unselect all (legacy)
-        $(document).on('click', '.js-ops-toggle-checkbox', function(e){
-          e.preventDefault();
-          var $btn = $(this);
-          var $container = $btn.closest('.ops-list');
-          var $inputs = $container.find("input[type='checkbox'][name='operators']");
-          var allChecked = $inputs.length === $inputs.filter(':checked').length;
-          if (allChecked) {
-            $inputs.prop('checked', false).trigger('change');
-            $btn.text('Select all').removeClass('btn-outline-danger').addClass('btn-outline-primary');
-          } else {
-            $inputs.prop('checked', true).trigger('change');
-            $btn.text('Unselect all').removeClass('btn-outline-primary').addClass('btn-outline-danger');
-          }
-        });
-
-        // Keep checkbox toolbar state in sync if user toggles individual boxes
-        $(document).on('change', "input[type='checkbox'][name='operators']", function(){
-          var $all = $("input[type='checkbox'][name='operators']");
-          var $checked = $all.filter(':checked');
-          var $btn = $('.js-ops-toggle-checkbox');
-          if (!$btn.length) return;
-          if ($checked.length === $all.length && $all.length > 0) {
-            $btn.text('Unselect all').removeClass('btn-outline-primary').addClass('btn-outline-danger');
-          } else {
-            $btn.text('Select all').removeClass('btn-outline-danger').addClass('btn-outline-primary');
-          }
-        });
-
-        // Keep select2 toolbar state in sync when selection changes
-        $(document).on('change', '.ops-list select[multiple]', function(){
-          var $select = $(this);
-          var allVals = $select.find('option').map(function(){ return this.value; }).get().filter(function(v){ return v !== ""; });
-          var val = $select.val() || [];
-          var $btn = $select.closest('.ops-list').find('.js-ops-toggle-select');
-          if (!$btn.length) return;
-          if (val.length === allVals.length && allVals.length>0) {
-            $btn.text('Unselect all').removeClass('btn-outline-primary').addClass('btn-outline-danger');
-          } else {
-            $btn.text('Select all').removeClass('btn-outline-danger').addClass('btn-outline-primary');
-          }
-        });
-
-        // existing AJAX logic for PRO -> ROUTING -> OP
-        $('#id_pro').on('change', function(){
-          var pro_id = $(this).val();
-          $('#id_routing').empty().append(new Option('Loading...', ''));
-          $('#id_routing_operation').empty().append(new Option('---',''));
-
-          if (!pro_id) {
-            $('#id_routing').empty().append(new Option('---',''));
-            $('#id_routing_operation').empty().append(new Option('---',''));
-            return;
-          }
-
-          $.getJSON("{% url 'planners:ajax_get_routings' %}", { pro_id: pro_id })
-            .done(function(data){
-              $('#id_routing').empty().append(new Option('--- Select routing ---',''));
-              data.results.forEach(function(item){
-                $('#id_routing').append(new Option(item.text, item.id));
-              });
-              initSelect2If('#id_routing');
-            }).fail(function(){
-              $('#id_routing').empty().append(new Option('Error',''));
-            });
-        });
-
-        $('#id_routing').on('change', function(){
-          var routing_id = $(this).val();
-          $('#id_routing_operation').empty().append(new Option('Loading...', ''));
-
-          if (!routing_id) {
-            $('#id_routing_operation').empty().append(new Option('---',''));
-            return;
-          }
-
-          $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", { routing_id: routing_id })
-            .done(function(data){
-              $('#id_routing_operation').empty().append(new Option('--- Select operation ---',''));
-              data.results.forEach(function(item){
-                $('#id_routing_operation').append(new Option(item.text, item.id));
-              });
-              initSelect2If('#id_routing_operation');
-            }).fail(function(){
-              $('#id_routing_operation').empty().append(new Option('Error',''));
-            });
-        });
-
-      });
-    })(jQuery);
-  </script>
+  });
+})(jQuery);
+</script>
 {% endblock %}

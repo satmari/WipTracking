@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.db import connections, transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, OuterRef, Exists
 from django.contrib.auth.models import Group
 from django.db.models import Count
 from django.urls import reverse, reverse_lazy
@@ -735,6 +735,30 @@ class ProListView(PlannerAccessMixin, ListView):
             .order_by("del_date", "pro_name")
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # postoji routing za isti (SKU + subdepartment)
+        routing_exists = Routing.objects.filter(
+            sku=OuterRef("pro__sku"),
+            subdepartment=OuterRef("subdepartment"),
+        )
+
+        # aktivni PRO subdepartments koji NEMAJU routing
+        missing = (
+            ProSubdepartment.objects
+            .filter(active=True, pro__sku__isnull=False)
+            .annotate(has_routing=Exists(routing_exists))
+            .filter(has_routing=False)
+            .select_related("pro", "subdepartment")
+            .order_by("pro__pro_name")
+        )
+
+        context["pros_without_routing"] = missing
+        context["pros_without_routing_count"] = missing.count()
+
+        return context
+
 
 class ProCreateView(PlannerAccessMixin, ProSubdepartmentMixin, CreateView):
     model = Pro
@@ -1036,14 +1060,14 @@ class RoutingOperationByRoutingListView(PlannerAccessMixin, ListView):
 
 class RoutingForm(forms.ModelForm):
     DECLARATION_CHOICES = [
-        ("", "— Select —"),   # prazan, ali ćemo ga blokirati u clean_...
+        ("", "— Select —"),
         ("Operator", "Operator"),
         ("Team", "Team"),
     ]
 
     declaration_type = forms.ChoiceField(
         choices=DECLARATION_CHOICES,
-        required=True,              # mora da se izabere Operator/Team
+        required=True,
         label="Declaration type",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
@@ -1062,7 +1086,7 @@ class RoutingForm(forms.ModelForm):
             "version",
             "version_description",
             "declaration_type",
-            "ready",     # u formi, ali disabled i ne renderuje se u template-u
+            "ready",
             "status",
         ]
         widgets = {
@@ -1075,11 +1099,11 @@ class RoutingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # NOVI routing -> status checked by default
+        # NEW routing → status checked by default
         if not self.instance or not self.instance.pk:
             self.fields["status"].initial = True
         else:
-            # EDIT MODE → ne dozvoljavamo izmenu ključnih polja
+            # EDIT MODE → lock key fields
             self.fields["sku"].disabled = True
             self.fields["subdepartment"].disabled = True
             self.fields["version"].disabled = True
@@ -1087,16 +1111,29 @@ class RoutingForm(forms.ModelForm):
             self.fields["sku"].widget.attrs.setdefault("readonly", "readonly")
             self.fields["version"].widget.attrs.setdefault("readonly", "readonly")
 
-        # `ready` je uvek pod kontrolom backenda
+        # `ready` is backend-controlled
         self.fields["ready"].disabled = True
+
+    def clean_sku(self):
+        sku = self.cleaned_data.get("sku", "").strip()
+
+        if len(sku) not in (14, 15):
+            raise forms.ValidationError(
+                "SKU must be exactly 14 or 15 characters long."
+            )
+
+        return sku
 
     def clean_declaration_type(self):
         value = self.cleaned_data.get("declaration_type")
         if not value:
-            raise forms.ValidationError("Please select declaration type (Operator or Team).")
+            raise forms.ValidationError(
+                "Please select declaration type (Operator or Team)."
+            )
         if value not in ("Operator", "Team"):
             raise forms.ValidationError("Invalid declaration type.")
         return value
+
 
 
 class RoutingCreateView(PlannerAccessMixin, CreateView):
@@ -1387,10 +1424,12 @@ class RoutingCopyStep2View(PlannerAccessMixin, TemplateView):
             messages.warning(request, f"Warning while updating routing ready status: {e}")
 
         # Odmah prikažemo listu operation-a za novi routing
-        return redirect(
-            "planners:routing_operation_by_routing",
-            routing_id=target_routing.pk,
-        )
+        # return redirect(
+        #     "planners:routing_operation_by_routing",
+        #     routing_id=target_routing.pk,
+        # )
+        # Vracamo na routing list
+        return redirect("planners:routing_list")
 
 
 # ---------- OPERATION  ---------
@@ -2280,9 +2319,15 @@ class DeclarationForm(forms.ModelForm):
 
 class _PStep1TeamUserForm(forms.Form):
     teamuser = forms.ModelChoiceField(
-        queryset=TeamUser.objects.filter(is_active=True).order_by("username"),
+        queryset=TeamUser.objects.filter(
+            is_active=True,
+            subdepartment__isnull=False
+        ).order_by("username"),
         label="Select Team user",
-        widget=forms.Select(attrs={"class": "form-select", "id": "id_w_teamuser"}),
+        widget=forms.Select(attrs={
+            "class": "form-select",
+            "id": "id_w_teamuser"
+        }),
     )
 
 
@@ -2350,7 +2395,9 @@ class _PStep6OperatorsForm(forms.Form):
     operators = forms.ModelMultipleChoiceField(
         queryset=Operator.objects.none(),
         required=False,
-        widget=forms.SelectMultiple(attrs={"class": "form-select select2-operators", "id": "id_w_operators", "multiple": "multiple"}),
+        widget=forms.CheckboxSelectMultiple(
+            attrs={"class": "form-check-input"}
+        ),
         label="Operators",
     )
 
@@ -2569,8 +2616,15 @@ class DeclarationWizardPlannerView(PlannerAccessMixin, View):
             # prepare operators queryset: prefer operators active in selected teamuser session for today
             if wip.get("teamuser"):
                 today = timezone.localdate()
-                sessions = LoginOperator.objects.filter(team_user_id=wip["teamuser"], status="ACTIVE", login_team_date=today).select_related("operator")
-                ops_qs = Operator.objects.filter(pk__in=[s.operator_id for s in sessions]).order_by("badge_num")
+                sessions = LoginOperator.objects.filter(
+                    team_user_id=wip["teamuser"],
+                    login_team_date=today,
+                    status__in=["ACTIVE", "COMPLETED"],
+                )
+
+                ops_qs = Operator.objects.filter(
+                    pk__in=sessions.values_list("operator_id", flat=True)
+                ).distinct().order_by("badge_num")
             else:
                 ops_qs = Operator.objects.filter(act=True).order_by("badge_num")
             form = _PStep6OperatorsForm(queryset=ops_qs, initial={"operators": wip.get("operators", [])})
@@ -2656,8 +2710,15 @@ class DeclarationWizardPlannerView(PlannerAccessMixin, View):
             # operators qs (same logic as GET)
             if wip.get("teamuser"):
                 today = timezone.localdate()
-                sessions = LoginOperator.objects.filter(team_user_id=wip["teamuser"], status="ACTIVE", login_team_date=today).select_related("operator")
-                ops_qs = Operator.objects.filter(pk__in=[s.operator_id for s in sessions]).order_by("badge_num")
+                sessions = LoginOperator.objects.filter(
+                    team_user_id=wip["teamuser"],
+                    login_team_date=today,
+                    status__in=["ACTIVE", "COMPLETED"],
+                )
+
+                ops_qs = Operator.objects.filter(
+                    pk__in=sessions.values_list("operator_id", flat=True)
+                ).distinct().order_by("badge_num")
             else:
                 ops_qs = Operator.objects.filter(act=True).order_by("badge_num")
 
