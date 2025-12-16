@@ -2764,7 +2764,8 @@ class DeclarationWizardPlannerView(PlannerAccessMixin, View):
             sessions = LoginOperator.objects.filter(
                 team_user_id=wip["teamuser"],
                 login_team_date=work_date,
-            )
+            ).filter(status__in=['ACTIVE', 'COMPLETED'])
+
 
             ops_qs = Operator.objects.filter(
                 pk__in=sessions.values_list("operator_id", flat=True)
@@ -2853,7 +2854,7 @@ class DeclarationWizardPlannerView(PlannerAccessMixin, View):
             sessions = LoginOperator.objects.filter(
                 team_user_id=wip["teamuser"],
                 login_team_date=work_date,
-            )
+            ).filter(status__in=['ACTIVE', 'COMPLETED'])
 
             ops_qs = Operator.objects.filter(
                 pk__in=sessions.values_list("operator_id", flat=True)
@@ -2982,7 +2983,6 @@ class DeclarationSavePlannerView(PlannerAccessMixin, View):
 
         messages.success(request, f"Declaration #{decl.id} created.")
         return redirect(reverse("planners:declaration_list"))
-
 
 
 class DeclarationCreateView(PlannerAccessMixin, CreateView):
