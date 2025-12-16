@@ -1020,9 +1020,9 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
         set_inactive = 0
 
         # log fajl (ručno)
-        log_dir = os.path.join(settings.BASE_DIR, "logs")
+        log_dir = os.path.join(settings.BASE_DIR, "log")
         os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, "pro_posummary_update.log")
+        log_path = os.path.join(log_dir, "pro_posummary_update.txt")
 
         pros = Pro.objects.filter(status=True)
 
