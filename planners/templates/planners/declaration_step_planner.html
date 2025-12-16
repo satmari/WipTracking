@@ -1,7 +1,9 @@
 {% extends 'core/base.html' %}
 {% load i18n static %}
 
-{% block title %}Declare output — Planner wizard (Step {{ step }}){% endblock %}
+{% block title %}
+Declare output — Planner wizard (Step {{ step }} of 7)
+{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -24,7 +26,6 @@
     transition: width .35s ease;
   }
 
-  /* inputs */
   .declaration-card form select,
   .declaration-card form input {
     width: 100%;
@@ -35,7 +36,6 @@
     font-size: .95rem;
   }
 
-  /* operators list – ORIGINAL LOOK */
   .ops-list {
     padding: .35rem;
     border-radius: .45rem;
@@ -63,7 +63,6 @@
     font-size: 1rem;
   }
 
-  /* toolbar */
   .ops-toolbar {
     display: flex;
     justify-content: flex-end;
@@ -76,7 +75,7 @@
   }
 
   .wip-summary li { margin-bottom:.45rem; }
-  .wip-summary strong { display:inline-block; width:110px; }
+  .wip-summary strong { display:inline-block; width:120px; }
 </style>
 {% endblock %}
 
@@ -87,13 +86,26 @@
     <h1 class="h4 mb-0">Declare output — Planner wizard</h1>
     <a href="{% url 'planners:declaration_wizard_cancel' %}"
        class="btn btn-outline-secondary btn-sm">
-      Back to list
+      Cancel
     </a>
   </div>
 
+  <!-- STEP TITLE -->
   <div class="mb-4 text-center">
-    <div class="wizard-step-title mb-2">Select Operators</div>
-    <div class="text-muted small mb-2">Step {{ step }} of 6</div>
+    <div class="wizard-step-title mb-2">
+      {% if step == 1 %}Select Team user
+      {% elif step == 2 %}Select Date
+      {% elif step == 3 %}Select PRO
+      {% elif step == 4 %}Select Routing
+      {% elif step == 5 %}Select Operation
+      {% elif step == 6 %}Enter Quantity
+      {% elif step == 7 %}Select Operators
+      {% endif %}
+    </div>
+
+    <div class="text-muted small mb-2">
+      Step {{ step }} of 7
+    </div>
 
     <div class="progress wizard-progress mx-auto" style="max-width:600px;">
       <div class="progress-bar bg-primary"
@@ -102,6 +114,7 @@
   </div>
 
   <div class="row">
+    <!-- FORM -->
     <div class="col-lg-8">
       <div class="card shadow-sm declaration-card mb-3">
         <div class="card-body">
@@ -123,8 +136,7 @@
                 {% if field.name == "operators" %}
                   <div class="ops-toolbar">
                     <button type="button"
-                            class="btn btn-sm btn-outline-primary js-ops-toggle"
-                            data-all="false">
+                            class="btn btn-sm btn-outline-primary js-ops-toggle">
                       Check all
                     </button>
                   </div>
@@ -152,12 +164,17 @@
             {% endfor %}
 
             <div class="d-flex justify-content-between align-items-center">
-              <a class="btn btn-outline-secondary"
-                 href="?step={{ step|add:'-1' }}">
-                ← Back
-              </a>
+              {% if step > 1 %}
+                <a class="btn btn-outline-secondary"
+                   href="?step={{ step|add:'-1' }}">
+                  ← Back
+                </a>
+              {% else %}
+                <span></span>
+              {% endif %}
+
               <button type="submit" class="btn btn-success">
-                Save declaration
+                {% if step == 7 %}Save declaration{% else %}Next →{% endif %}
               </button>
             </div>
 
@@ -167,6 +184,7 @@
       </div>
     </div>
 
+    <!-- PREVIEW -->
     <div class="col-lg-4">
       <div class="card shadow-sm">
         <div class="card-body">
@@ -174,6 +192,7 @@
           <ul class="list-unstyled small wip-summary">
             <li><strong>Team user:</strong> {{ wip_preview.teamuser|default:"—" }}</li>
             <li><strong>Subdepartment:</strong> {{ wip_preview.subdepartment|default:"—" }}</li>
+            <li><strong>Date:</strong> {{ wip_preview.date|default:"—" }}</li>
             <li><strong>PRO:</strong> {{ wip_preview.pro|default:"—" }}</li>
             <li><strong>Routing:</strong> {{ wip_preview.routing|default:"—" }}</li>
             <li><strong>Operation:</strong> {{ wip_preview.routing_operation|default:"—" }}</li>
@@ -227,15 +246,10 @@
       }
     }
 
-    // ✅ SEARCHABLE DROPDOWNS
     initSelect2('#id_pro', 'Search PRO');
     initSelect2('#id_routing', 'Search routing');
     initSelect2('#id_routing_operation', 'Search operation');
 
-    // ako ima još:
-    // initSelect2('#id_teamuser', 'Search team user');
-
-    // --- AJAX reload safety ---
     $(document).on('change', '#id_pro', function(){
       setTimeout(function(){
         initSelect2('#id_routing', 'Search routing');

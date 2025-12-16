@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
 from django.views.generic import (TemplateView, ListView, CreateView, UpdateView, DeleteView, FormView, DetailView )
 
+from datetime import datetime, date, time
 from django.contrib import messages
 from django.db import connections, transaction
 from django.shortcuts import render, redirect, get_object_or_404
@@ -2466,6 +2467,17 @@ class _PStep1TeamUserForm(forms.Form):
     )
 
 
+class _PStep2DateForm(forms.Form):
+    work_date = forms.DateField(
+        label="Select date",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+            }
+        ),
+    )
+
 class _PStep2ProForm(forms.Form):
     pro = forms.ModelChoiceField(queryset=Pro.objects.filter(status=True).order_by("del_date", "pro_name"), label="Select PRO")
 
@@ -2641,19 +2653,11 @@ class DeclarationDeleteView(PlannerAccessMixin, DeleteView):
 
 
 class DeclarationWizardPlannerView(PlannerAccessMixin, View):
-    """
-    Planner-facing multi-step declaration wizard.
-    Steps:
-      1 - choose teamuser
-      2 - choose PRO
-      3 - choose Routing (filtered by PRO SKU and by teamuser subdepartment if present)
-      4 - choose RoutingOperation (optional)
-      5 - qty
-      6 - operators (if routing requires OPERATOR declarations)
-    """
     template_name = "planners/declaration_step_planner.html"
 
+    # ------------------
     # session helpers
+    # ------------------
     def _get_wip(self, request):
         return request.session.get("planner_declaration_wip", {})
 
@@ -2661,260 +2665,287 @@ class DeclarationWizardPlannerView(PlannerAccessMixin, View):
         request.session["planner_declaration_wip"] = wip
         request.session.modified = True
 
-    def _clear_wip(self, request):
-        if "planner_declaration_wip" in request.session:
-            del request.session["planner_declaration_wip"]
-            request.session.modified = True
-
     def _build_preview(self, wip):
-        preview = {"teamuser": None, "subdepartment": None, "pro": None, "routing": None, "routing_operation": None, "qty": wip.get("qty"), "operators": []}
+        preview = {
+            "teamuser": None,
+            "subdepartment": None,
+            "date": wip.get("work_date"),
+            "pro": None,
+            "routing": None,
+            "routing_operation": None,
+            "qty": wip.get("qty"),
+        }
+
         if wip.get("teamuser"):
             try:
                 tu = TeamUser.objects.get(pk=wip["teamuser"])
                 preview["teamuser"] = tu.username
                 preview["subdepartment"] = tu.subdepartment.subdepartment if tu.subdepartment else None
             except TeamUser.DoesNotExist:
-                preview["teamuser"] = f"ID:{wip['teamuser']}"
+                pass
+
         if wip.get("pro"):
             try:
-                p = Pro.objects.get(pk=wip["pro"])
-                preview["pro"] = p.pro_name
+                preview["pro"] = Pro.objects.get(pk=wip["pro"]).pro_name
             except Pro.DoesNotExist:
-                preview["pro"] = f"ID:{wip['pro']}"
+                pass
+
         if wip.get("routing"):
             try:
                 r = Routing.objects.get(pk=wip["routing"])
                 preview["routing"] = f"{r.sku} / {r.version}"
             except Routing.DoesNotExist:
-                preview["routing"] = f"ID:{wip['routing']}"
+                pass
+
         if wip.get("routing_operation"):
             try:
                 ro = RoutingOperation.objects.select_related("operation").get(pk=wip["routing_operation"])
-                preview["routing_operation"] = str(ro.operation)
+                preview["routing_operation"] = ro.operation.name
             except RoutingOperation.DoesNotExist:
-                preview["routing_operation"] = f"ID:{wip['routing_operation']}"
-        op_ids = wip.get("operators", []) or []
-        if op_ids:
-            ops = Operator.objects.filter(pk__in=op_ids).order_by("badge_num")
-            preview["operators"] = [f"{o.badge_num} - {o.name}" for o in ops]
+                pass
+
         return preview
 
     def _render(self, request, step, form, wip):
-        # 6 steps -> percent 0..100
-        percent = max(0, min(100, int((step - 1) / 5.0 * 100)))
-        context = {
+        percent = int((step - 1) / 6 * 100)  # 7 steps
+        return render(request, self.template_name, {
             "step": step,
             "form": form,
             "percent": percent,
             "wip_preview": self._build_preview(wip),
-        }
-        return render(request, self.template_name, context)
+        })
 
-    def get(self, request, *args, **kwargs):
+    # ------------------
+    # GET
+    # ------------------
+    def get(self, request):
         step = int(request.GET.get("step", 1))
         wip = self._get_wip(request)
 
-        # compute teamuser subdepartment (if teamuser selected earlier) to pass into forms
         teamuser_subdep = None
         if wip.get("teamuser"):
             try:
                 teamuser_subdep = TeamUser.objects.get(pk=wip["teamuser"]).subdepartment
             except TeamUser.DoesNotExist:
-                teamuser_subdep = None
+                pass
 
         if step == 1:
             form = _PStep1TeamUserForm(initial={"teamuser": wip.get("teamuser")})
-        elif step == 2:
-            form = _PStep2ProForm(initial={"pro": wip.get("pro")}, subdepartment=teamuser_subdep)
-        elif step == 3:
-            if not wip.get("pro"):
-                messages.error(request, "Please select a PRO first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=2")
-            pro = get_object_or_404(Pro, pk=wip["pro"])
-            # pass subdepartment so routings from other subdepartments are not shown
-            form = _PStep3RoutingForm(initial={"routing": wip.get("routing")}, pro=pro, subdepartment=teamuser_subdep)
-        elif step == 4:
-            if not wip.get("routing"):
-                messages.error(request, "Please select a Routing first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=3")
-            routing = get_object_or_404(Routing, pk=wip["routing"])
-            form = _PStep4RoutingOperationForm(initial={"routing_operation": wip.get("routing_operation")}, routing=routing)
-        elif step == 5:
-            form = _PStep5QtyForm(initial={"qty": wip.get("qty")})
-        elif step == 6:
-            if not wip.get("routing"):
-                messages.error(request, "Please select a Routing first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=3")
-            routing = get_object_or_404(Routing, pk=wip["routing"])
-            if routing.declaration_type and routing.declaration_type.strip().upper() == "TEAM":
-                return redirect(reverse("planners:declaration_save_planner"))
-            # prepare operators queryset: prefer operators active in selected teamuser session for today
-            if wip.get("teamuser"):
-                today = timezone.localdate()
-                sessions = LoginOperator.objects.filter(
-                    team_user_id=wip["teamuser"],
-                    login_team_date=today,
-                    status__in=["ACTIVE", "COMPLETED"],
-                )
 
-                ops_qs = Operator.objects.filter(
-                    pk__in=sessions.values_list("operator_id", flat=True)
-                ).distinct().order_by("badge_num")
-            else:
-                ops_qs = Operator.objects.filter(act=True).order_by("badge_num")
-            form = _PStep6OperatorsForm(queryset=ops_qs, initial={"operators": wip.get("operators", [])})
+        elif step == 2:
+            form = _PStep2DateForm(initial={"work_date": wip.get("work_date")})
+
+
+        elif step == 3:
+
+            subdep = TeamUser.objects.get(pk=wip["teamuser"]).subdepartment
+            form = _PStep2ProForm(request.POST, subdepartment=subdep)
+
+        elif step == 4:
+            pro = get_object_or_404(Pro, pk=wip.get("pro"))
+            form = _PStep3RoutingForm(initial={"routing": wip.get("routing")}, pro=pro, subdepartment=teamuser_subdep)
+
+        elif step == 5:
+            routing = get_object_or_404(Routing, pk=wip.get("routing"))
+            form = _PStep4RoutingOperationForm(
+                initial={"routing_operation": wip.get("routing_operation")},
+                routing=routing
+            )
+
+        elif step == 6:
+            form = _PStep5QtyForm(initial={"qty": wip.get("qty")})
+
+        elif step == 7:
+            if not wip.get("work_date") or not wip.get("teamuser"):
+                return redirect(reverse("planners:declaration_wizard") + "?step=1")
+
+            work_date = date.fromisoformat(wip["work_date"])
+
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["teamuser"],
+                login_team_date=work_date,
+            )
+
+            ops_qs = Operator.objects.filter(
+                pk__in=sessions.values_list("operator_id", flat=True)
+            ).distinct().order_by("badge_num")
+
+            form = _PStep6OperatorsForm(
+                queryset=ops_qs,
+                initial={"operators": wip.get("operators", [])}
+            )
+
         else:
-            messages.error(request, "Invalid step.")
-            return redirect(f"{reverse('planners:declaration_wizard')}?step=1")
+            return redirect(reverse("planners:declaration_wizard") + "?step=1")
 
         return self._render(request, step, form, wip)
 
-    def post(self, request, *args, **kwargs):
+    # ------------------
+    # POST
+    # ------------------
+    def post(self, request):
         step = int(request.POST.get("step", 1))
         wip = self._get_wip(request)
 
-        # helper: current teamuser subdepartment if present
-        teamuser_subdep = None
-        if wip.get("teamuser"):
-            try:
-                teamuser_subdep = TeamUser.objects.get(pk=wip["teamuser"]).subdepartment
-            except TeamUser.DoesNotExist:
-                teamuser_subdep = None
-
-        # step handlers
         if step == 1:
             form = _PStep1TeamUserForm(request.POST)
             if form.is_valid():
-                wip["teamuser"] = form.cleaned_data["teamuser"].id
                 tu = form.cleaned_data["teamuser"]
-                wip["subdepartment"] = tu.subdepartment.id if tu.subdepartment else None
+                wip["teamuser"] = tu.id
+                wip["subdepartment"] = tu.subdepartment_id
                 self._save_wip(request, wip)
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=2")
+                return redirect(reverse("planners:declaration_wizard") + "?step=2")
 
         elif step == 2:
-            form = _PStep2ProForm(request.POST, subdepartment=teamuser_subdep)
+            form = _PStep2DateForm(request.POST)
+            if form.is_valid():
+                work_date = form.cleaned_data["work_date"]
+
+                try:
+                    calendar = Calendar.objects.get(
+                        team_user_id=wip["teamuser"],
+                        date=work_date
+                    )
+                except Calendar.DoesNotExist:
+                    messages.error(request, "No calendar entry for this date.")
+                    return redirect(reverse("planners:declaration_wizard") + "?step=2")
+
+                wip["work_date"] = work_date.isoformat()
+                wip["shift_start"] = calendar.shift_start.isoformat()
+                self._save_wip(request, wip)
+                return redirect(reverse("planners:declaration_wizard") + "?step=3")
+
+        elif step == 3:
+            form = _PStep2ProForm(request.POST)
             if form.is_valid():
                 wip["pro"] = form.cleaned_data["pro"].id
                 self._save_wip(request, wip)
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=3")
+                return redirect(reverse("planners:declaration_wizard") + "?step=4")
 
-        elif step == 3:
-            if not wip.get("pro"):
-                messages.error(request, "Please select a PRO first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=2")
+        elif step == 4:
             pro = get_object_or_404(Pro, pk=wip["pro"])
-            form = _PStep3RoutingForm(request.POST, pro=pro, subdepartment=teamuser_subdep)
+            form = _PStep3RoutingForm(request.POST, pro=pro)
             if form.is_valid():
                 wip["routing"] = form.cleaned_data["routing"].id
                 self._save_wip(request, wip)
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=4")
+                return redirect(reverse("planners:declaration_wizard") + "?step=5")
 
-        elif step == 4:
-            if not wip.get("routing"):
-                messages.error(request, "Please select a Routing first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=3")
+        elif step == 5:
             routing = get_object_or_404(Routing, pk=wip["routing"])
             form = _PStep4RoutingOperationForm(request.POST, routing=routing)
             if form.is_valid():
                 ro = form.cleaned_data["routing_operation"]
                 wip["routing_operation"] = ro.id
-                wip["smv"] = str(ro.smv) if ro.smv is not None else None
-                wip["smv_ita"] = str(ro.smv_ita) if ro.smv_ita is not None else None
-                self._save_wip(request, wip)
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=5")
 
-        elif step == 5:
-            form = _PStep5QtyForm(request.POST)
-            if form.is_valid():
-                wip["qty"] = int(form.cleaned_data["qty"])
                 self._save_wip(request, wip)
-                routing = get_object_or_404(Routing, pk=wip["routing"]) if wip.get("routing") else None
-                if routing and routing.declaration_type and routing.declaration_type.strip().upper() == "TEAM":
-                    return redirect(reverse("planners:declaration_save_planner"))
-                else:
-                    return redirect(f"{reverse('planners:declaration_wizard')}?step=6")
+                return redirect(reverse("planners:declaration_wizard") + "?step=6")
 
         elif step == 6:
-            if not wip.get("routing"):
-                messages.error(request, "Please select a Routing first.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=3")
-            routing = get_object_or_404(Routing, pk=wip["routing"])
-            if routing.declaration_type and routing.declaration_type.strip().upper() == "TEAM":
-                return redirect(reverse("planners:declaration_save_planner"))
+            form = _PStep5QtyForm(request.POST)
+            if form.is_valid():
+                wip["qty"] = form.cleaned_data["qty"]
+                self._save_wip(request, wip)
+                return redirect(reverse("planners:declaration_wizard") + "?step=7")
 
-            # operators qs (same logic as GET)
-            if wip.get("teamuser"):
-                today = timezone.localdate()
-                sessions = LoginOperator.objects.filter(
-                    team_user_id=wip["teamuser"],
-                    login_team_date=today,
-                    status__in=["ACTIVE", "COMPLETED"],
-                )
+        elif step == 7:
+            work_date = date.fromisoformat(wip["work_date"])
 
-                ops_qs = Operator.objects.filter(
-                    pk__in=sessions.values_list("operator_id", flat=True)
-                ).distinct().order_by("badge_num")
-            else:
-                ops_qs = Operator.objects.filter(act=True).order_by("badge_num")
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["teamuser"],
+                login_team_date=work_date,
+            )
+
+            ops_qs = Operator.objects.filter(
+                pk__in=sessions.values_list("operator_id", flat=True)
+            ).distinct()
 
             form = _PStep6OperatorsForm(request.POST, queryset=ops_qs)
             if form.is_valid():
-                selected_ids = list(form.cleaned_data["operators"].values_list("id", flat=True))
-                if not selected_ids:
-                    messages.error(request, "Please select at least one operator.")
-                    return redirect(f"{reverse('planners:declaration_wizard')}?step=6")
-                wip["operators"] = selected_ids
+                wip["operators"] = list(
+                    form.cleaned_data["operators"].values_list("id", flat=True)
+                )
                 self._save_wip(request, wip)
                 return redirect(reverse("planners:declaration_save_planner"))
 
-        else:
-            messages.error(request, "Invalid step.")
-            return redirect(f"{reverse('planners:declaration_wizard')}?step=1")
-
-        # invalid -> render current step with errors
         return self._render(request, step, form, wip)
 
 
 class DeclarationSavePlannerView(PlannerAccessMixin, View):
     """
     Create Declaration from planner_wip and clear session.
+    Uses selected work_date and Calendar.shift_start
+    for created_at / updated_at.
     """
+
     def get(self, request, *args, **kwargs):
         wip = request.session.get("planner_declaration_wip")
+
         if not wip:
             messages.error(request, "No declaration in progress.")
             return redirect(reverse("planners:declaration_list"))
 
-        # validate minimal required values
+        # -----------------------
+        # REQUIRED DATA
+        # -----------------------
         try:
             teamuser = TeamUser.objects.get(pk=wip["teamuser"])
             pro = Pro.objects.get(pk=wip["pro"])
             routing = Routing.objects.get(pk=wip["routing"])
         except Exception:
-            messages.error(request, "Invalid WIP data (teamuser / pro / routing).")
+            messages.error(request, "Invalid wizard data (teamuser / pro / routing).")
             request.session.pop("planner_declaration_wip", None)
             return redirect(reverse("planners:declaration_list"))
 
-        # Defensive check: routing's subdepartment must match teamuser.subdepartment (if teamuser has subdepartment)
+        # -----------------------
+        # DATE + SHIFT
+        # -----------------------
+        try:
+            work_date = date.fromisoformat(wip["work_date"])
+            shift_start = time.fromisoformat(wip["shift_start"])
+        except Exception:
+            messages.error(request, "Invalid date or shift data.")
+            return redirect(reverse("planners:declaration_wizard") + "?step=2")
+
+        decl_datetime = timezone.make_aware(
+            datetime.combine(work_date, shift_start)
+        )
+
+        # -----------------------
+        # DEFENSIVE CHECK
+        # -----------------------
         if teamuser.subdepartment_id and routing.subdepartment_id != teamuser.subdepartment_id:
-            messages.error(request, "Selected routing does not belong to the Team user's subdepartment.")
+            messages.error(
+                request,
+                "Selected routing does not belong to the Team user's subdepartment."
+            )
             request.session.pop("planner_declaration_wip", None)
             return redirect(reverse("planners:declaration_list"))
 
+        # -----------------------
+        # ROUTING OPERATION
+        # -----------------------
         routing_operation = None
         if wip.get("routing_operation"):
             try:
-                routing_operation = RoutingOperation.objects.get(pk=wip["routing_operation"])
+                routing_operation = RoutingOperation.objects.get(
+                    pk=wip["routing_operation"]
+                )
             except RoutingOperation.DoesNotExist:
                 routing_operation = None
 
+        # -----------------------
+        # QTY
+        # -----------------------
         qty = int(wip.get("qty", 0))
         if qty <= 0:
             messages.error(request, "Invalid quantity.")
-            return redirect(reverse("planners:declaration_wizard") + "?step=5")
+            return redirect(reverse("planners:declaration_wizard") + "?step=6")
 
+        # -----------------------
+        # CREATE DECLARATION
+        # -----------------------
         decl = Declaration.objects.create(
-            decl_date=timezone.localdate(),
+            decl_date=work_date,
             teamuser=teamuser,
             subdepartment=teamuser.subdepartment,
             pro=pro,
@@ -2923,21 +2954,35 @@ class DeclarationSavePlannerView(PlannerAccessMixin, View):
             qty=qty,
             smv=(wip.get("smv") or (routing_operation.smv if routing_operation else None)),
             smv_ita=(wip.get("smv_ita") or (routing_operation.smv_ita if routing_operation else None)),
+            created_at=decl_datetime,
+            updated_at=decl_datetime,
         )
 
-        # attach operators if needed
+        # -----------------------
+        # OPERATORS (STEP 7)
+        # -----------------------
         if routing.declaration_type and routing.declaration_type.strip().upper() == "OPERATOR":
             operator_ids = wip.get("operators", []) or []
+
             if not operator_ids:
                 decl.delete()
-                messages.error(request, "Declaration requires operators but none selected.")
-                return redirect(f"{reverse('planners:declaration_wizard')}?step=6")
+                messages.error(
+                    request,
+                    "Declaration requires operators but none selected."
+                )
+                return redirect(reverse("planners:declaration_wizard") + "?step=7")
+
             decl.operators.add(*operator_ids)
 
-        # clear wip and finish
+        # -----------------------
+        # CLEANUP & FINISH
+        # -----------------------
         request.session.pop("planner_declaration_wip", None)
+        request.session.modified = True
+
         messages.success(request, f"Declaration #{decl.id} created.")
         return redirect(reverse("planners:declaration_list"))
+
 
 
 class DeclarationCreateView(PlannerAccessMixin, CreateView):
