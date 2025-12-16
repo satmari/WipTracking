@@ -995,6 +995,145 @@ class POSummaryProCreateView(PlannerAccessMixin, ProSubdepartmentMixin, CreateVi
         return super().get(request, *args, **kwargs)
 
 
+class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
+
+    def post(self, request, *args, **kwargs):
+
+        query = """
+            SELECT TOP (1)
+               [style],
+               [color],
+               [size],
+               [qty],
+               [delivery_date],
+               [status_int] AS status,
+               [location_all] AS destination,
+               [approval] AS tpp,
+               [skeda]
+            FROM [posummary].[dbo].[pro]
+            WHERE [pro] = %s
+            ORDER BY [delivery_date] DESC
+        """
+
+        updated = 0
+        unchanged = 0
+        set_inactive = 0
+
+        # log fajl (ručno)
+        log_dir = os.path.join(settings.BASE_DIR, "log")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "pro_posummary_update.log")
+
+        pros = Pro.objects.filter(status=True)
+
+        try:
+            with connections["posummary"].cursor() as cursor, \
+                 open(log_path, "a", encoding="utf-8") as log_file:
+
+                for pro in pros:
+                    cursor.execute(query, [pro.pro_name])
+                    row = cursor.fetchone()
+
+                    if not row:
+                        unchanged += 1
+                        continue
+
+                    (
+                        style,
+                        color,
+                        size,
+                        qty,
+                        delivery_date,
+                        status_raw,
+                        destination,
+                        tpp,
+                        skeda,
+                    ) = row
+
+                    changes = []
+
+                    # ---------- SKU (PONOVLJENA LOGIKA) ----------
+                    style_part = (style or "")[:9].ljust(9)
+                    color_part = (color or "")[:4].ljust(4)
+                    size_part = size or ""
+                    new_sku = f"{style_part}{color_part}{size_part}"
+
+                    if new_sku != pro.sku:
+                        changes.append(f"sku: '{pro.sku}' → '{new_sku}'")
+                        pro.sku = new_sku
+
+                    # ---------- QTY ----------
+                    if qty is not None and qty != pro.qty:
+                        changes.append(f"qty: {pro.qty} → {qty}")
+                        pro.qty = qty
+
+                    # ---------- DELIVERY DATE ----------
+                    if isinstance(delivery_date, datetime.datetime):
+                        delivery_date = delivery_date.date()
+
+                    if delivery_date != pro.del_date:
+                        changes.append(f"del_date: {pro.del_date} → {delivery_date}")
+                        pro.del_date = delivery_date
+
+                    # ---------- DESTINATION ----------
+                    destination = destination or ""
+                    if destination != pro.destination:
+                        changes.append(
+                            f"destination: '{pro.destination}' → '{destination}'"
+                        )
+                        pro.destination = destination
+
+                    # ---------- TPP ----------
+                    tpp = tpp or ""
+                    if tpp != pro.tpp:
+                        changes.append(f"tpp: '{pro.tpp}' → '{tpp}'")
+                        pro.tpp = tpp
+
+                    # ---------- SKEDA ----------
+                    skeda = skeda or ""
+                    if skeda != pro.skeda:
+                        changes.append(f"skeda: '{pro.skeda}' → '{skeda}'")
+                        pro.skeda = skeda
+
+                    # ---------- STATUS ----------
+                    status_str = str(status_raw).strip().lower()
+                    if status_str == "closed" and pro.status:
+                        pro.status = False
+                        set_inactive += 1
+                        changes.append("status: Active → Inactive")
+
+                    # ---------- SAVE + LOG ----------
+                    if changes:
+                        pro.save()
+                        updated += 1
+
+                        log_file.write(
+                            f"{datetime.datetime.now()} | "
+                            f"PRO {pro.pro_name} | "
+                            + " | ".join(changes)
+                            + "\n"
+                        )
+                    else:
+                        unchanged += 1
+
+            messages.success(
+                request,
+                f"POSummary sync finished. "
+                f"Updated: {updated}, "
+                f"Unchanged: {unchanged}, "
+                f"Set Inactive: {set_inactive}"
+            )
+
+        except Exception as e:
+            messages.error(
+                request,
+                f"Error during POSummary synchronization: {e}"
+            )
+
+        return redirect("planners:pro_list")
+
+    def get(self, request, *args, **kwargs):
+        return redirect("planners:pro_list")
 
 
 

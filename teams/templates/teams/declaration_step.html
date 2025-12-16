@@ -5,50 +5,34 @@
 
 {% block extra_head %}
 <style>
-  /* --- Layout tweaks --- */
   .declaration-card .card-body { padding: 1.4rem; }
   .declaration-form-label { font-weight: 600; display:block; margin-bottom: .4rem; }
 
-  /* --- Big centered step title --- */
   .wizard-step-title {
     font-size: 1.35rem;
     font-weight: 700;
     letter-spacing: .2px;
   }
 
-  /* --- Progress bar styling --- */
   .wizard-progress {
     height: 12px;
     border-radius: 999px;
     overflow: hidden;
     box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
   }
+
   .wizard-progress .progress-bar { transition: width .35s ease; }
 
-  /* --- Inputs / selects --- */
   .declaration-card form select,
-  .declaration-card form input[type="text"],
-  .declaration-card form input[type="number"],
-  .declaration-card form input[type="date"],
-  .declaration-card form input[type="time"],
-  .declaration-card .form-control {
+  .declaration-card form input {
     width: 100%;
     padding: .55rem .75rem;
     border: 1px solid #d1d5db;
     border-radius: .5rem;
     background: #fff;
-    box-shadow: none;
     font-size: .95rem;
   }
 
-  .declaration-card form select:focus,
-  .declaration-card form input:focus {
-    outline: none;
-    border-color: #86b7ff;
-    box-shadow: 0 0 0 .15rem rgba(13,110,253,.12);
-  }
-
-  /* --- Operators checkbox list --- */
   .ops-list {
     padding: .35rem;
     border-radius: .45rem;
@@ -77,21 +61,15 @@
     font-size: 1rem;
   }
 
-  /* toolbar */
   .ops-toolbar {
     display: flex;
     justify-content: flex-end;
-    gap: .5rem;
     margin-bottom: .5rem;
   }
 
   .ops-toolbar .btn {
     padding: .28rem .6rem;
     font-size: .875rem;
-  }
-
-  @media (max-width: 767px) {
-    .wizard-progress { max-width: 100%; }
   }
 
   .wip-summary li { margin-bottom: .45rem; }
@@ -101,49 +79,30 @@
 
 {% block content %}
 <div class="container mt-4">
+
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Declare output</h1>
-    <div>
-      {% if step|add:"-1" >= 1 %}
-        <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
-      {% else %}
-        <a class="btn btn-outline-secondary" href="{% url 'teams:declare_output_cancel' %}">Cancel</a>
-      {% endif %}
-    </div>
+    {% if step|add:"-1" >= 1 %}
+      <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
+    {% else %}
+      <a class="btn btn-outline-secondary" href="{% url 'teams:declare_output_cancel' %}">Cancel</a>
+    {% endif %}
   </div>
-
-  {% if messages %}
-    <div class="mb-3">
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} mb-2">{{ message }}</div>
-      {% endfor %}
-    </div>
-  {% endif %}
 
   <div class="mb-4 text-center">
     <div class="wizard-step-title mb-2">
-      {% if step == 1 %}
-        Choose PRO
-      {% elif step == 2 %}
-        Choose Routing
-      {% elif step == 3 %}
-        Choose Operation
-      {% elif step == 4 %}
-        Insert Quantity
-      {% else %}
-        Select Operators
+      {% if step == 1 %}Choose PRO
+      {% elif step == 2 %}Choose Routing
+      {% elif step == 3 %}Choose Operation
+      {% elif step == 4 %}Insert Quantity
+      {% else %}Select Operators
       {% endif %}
     </div>
 
     <div class="text-muted small mb-2">Step {{ step }} of 5</div>
 
     <div class="progress wizard-progress mx-auto" style="max-width:600px;">
-      <div class="progress-bar"
-           role="progressbar"
-           style="width: {{ percent }}%;"
-           aria-valuenow="{{ percent }}"
-           aria-valuemin="0"
-           aria-valuemax="100"></div>
+      <div class="progress-bar" style="width: {{ percent }}%;"></div>
     </div>
   </div>
 
@@ -158,7 +117,7 @@
 
             {% for field in form %}
               <div class="mb-3">
-                <label class="declaration-form-label" for="{{ field.id_for_label }}">
+                <label class="declaration-form-label">
                   {{ field.label }}
                   {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                 </label>
@@ -168,7 +127,6 @@
                     <div class="ops-toolbar">
                       <button type="button"
                               class="btn btn-sm btn-outline-primary js-ops-toggle"
-                              data-field-name="operators"
                               data-all="false">
                         Check all
                       </button>
@@ -179,7 +137,7 @@
                     {% for checkbox in field %}
                       <div class="form-check">
                         {{ checkbox.tag }}
-                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                        <label for="{{ checkbox.id_for_label }}">
                           {{ checkbox.choice_label }}
                         </label>
                       </div>
@@ -197,50 +155,32 @@
               </div>
             {% endfor %}
 
-            <div class="d-flex justify-content-between align-items-center">
-              {% if step|add:"-1" >= 1 %}
-                <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
+            <div class="d-flex justify-content-between">
+              <a class="btn btn-outline-secondary" href="?step={{ step|add:'-1' }}">← Back</a>
+              {% if step < 5 %}
+                <button type="submit" class="btn btn-primary">Next →</button>
               {% else %}
-                <a class="btn btn-outline-secondary" href="{% url 'teams:team_dashboard' %}">Cancel</a>
+                <button type="submit" class="btn btn-success">Save</button>
               {% endif %}
-
-              <div>
-                {% if step < 5 %}
-                  <button type="submit" class="btn btn-primary">Next →</button>
-                {% else %}
-                  <button type="submit" class="btn btn-success">Save</button>
-                {% endif %}
-              </div>
             </div>
 
           </form>
+
         </div>
       </div>
     </div>
 
     <div class="col-lg-4">
-      <div class="card shadow-sm mb-3">
+      <div class="card shadow-sm">
         <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">Current selection</h6>
-          <ul class="list-unstyled small mb-2 wip-summary">
+          <h6 class="text-muted mb-2">Current selection</h6>
+          <ul class="list-unstyled small wip-summary">
             <li><strong>Team user:</strong> {{ request.user.username }}</li>
             <li><strong>Subdepartment:</strong> {{ wip_preview.subdepartment_name|default:"—" }}</li>
             <li><strong>PRO:</strong> {{ wip_preview.pro_name|default:"—" }}</li>
             <li><strong>Routing:</strong> {{ wip_preview.routing_label|default:"—" }}</li>
             <li><strong>Operation:</strong> {{ wip_preview.operation_name|default:"—" }}</li>
             <li><strong>Qty:</strong> {{ wip_preview.qty|default:"—" }}</li>
-            <li>
-              <strong>Operators:</strong>
-              {% if wip_preview.operators %}
-                <ul class="list-unstyled mb-0">
-                  {% for op in wip_preview.operators %}
-                    <li>{{ op }}</li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                —
-              {% endif %}
-            </li>
           </ul>
         </div>
       </div>
@@ -252,46 +192,60 @@
 
 {% block scripts %}
 {{ block.super }}
+
 <script>
 (function($){
   $(document).ready(function(){
 
+    /* ===== SELECT2 ===== */
+    function initSelect2(selector, placeholder) {
+      var $el = $(selector);
+      if ($el.length && !$el.hasClass('select2-hidden-accessible')) {
+        $el.select2({
+          width: '100%',
+          placeholder: placeholder || 'Select…',
+          allowClear: true
+        });
+      }
+    }
+
+    initSelect2('#id_pro', 'Search PRO');
+    initSelect2('#id_routing', 'Search routing');
+    initSelect2('#id_operation', 'Search operation');
+
+    /* ===== CHECK / UNCHECK ALL OPERATORS ===== */
     $(document).on('click', '.js-ops-toggle', function(e){
       e.preventDefault();
-      var $btn = $(this);
-      var selectAll = $btn.attr('data-all') === 'false';
-      var $inputs = $("input[type='checkbox'][name='operators']");
 
-      if (selectAll) {
-        $inputs.prop('checked', true).trigger('change');
-        $btn.text('Uncheck all')
-            .attr('data-all','true')
-            .removeClass('btn-outline-primary')
-            .addClass('btn-outline-danger');
-      } else {
-        $inputs.prop('checked', false).trigger('change');
+      var $btn = $(this);
+      var $inputs = $("input[type='checkbox'][name='operators']");
+      var allChecked = $inputs.length === $inputs.filter(':checked').length;
+
+      if (allChecked) {
+        $inputs.prop('checked', false);
         $btn.text('Check all')
-            .attr('data-all','false')
             .removeClass('btn-outline-danger')
             .addClass('btn-outline-primary');
+      } else {
+        $inputs.prop('checked', true);
+        $btn.text('Uncheck all')
+            .removeClass('btn-outline-primary')
+            .addClass('btn-outline-danger');
       }
     });
 
     $(document).on('change', "input[type='checkbox'][name='operators']", function(){
-      var $all = $("input[type='checkbox'][name='operators']");
-      var $checked = $all.filter(':checked');
-      var $btn = $('.js-ops-toggle[data-field-name="operators"]');
+      var $inputs = $("input[type='checkbox'][name='operators']");
+      var $btn = $('.js-ops-toggle');
 
       if (!$btn.length) return;
 
-      if ($checked.length === $all.length && $all.length > 0) {
+      if ($inputs.length === $inputs.filter(':checked').length) {
         $btn.text('Uncheck all')
-            .attr('data-all','true')
             .removeClass('btn-outline-primary')
             .addClass('btn-outline-danger');
       } else {
         $btn.text('Check all')
-            .attr('data-all','false')
             .removeClass('btn-outline-danger')
             .addClass('btn-outline-primary');
       }

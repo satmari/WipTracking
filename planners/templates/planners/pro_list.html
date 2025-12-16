@@ -10,10 +10,15 @@
     <h1 class="h4 mb-0">PRO List</h1>
     <a href="{% url 'planners:pro_add' %}" class="btn btn-primary btn-sm">Add PRO manualy</a>
     <a href="{% url 'planners:posummary_lookup' %}" class="btn btn-secondary btn-sm">Add PRO from POSummary</a>
-    <a href="#" class="btn btn-danger btn-sm">Update all PRO from POSummary</a>
+    <form method="post" action="{% url 'planners:pro_update_from_posummary' %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Update ALL active PRO from POSummary?');">
+        Update all PRO from POSummary
+      </button>
+    </form>
   </div>
 
-  {# ===== PRO WITHOUT ROUTING INFO ===== #}
+
   {% if pros_without_routing_count %}
     <div class="alert alert-warning d-flex justify-content-between align-items-center mb-3">
       <div>
@@ -145,6 +150,7 @@
 <script>
 $(document).ready(function () {
     initTableWithColumnFilters('#pro-table', {
+        order: [[0, 'desc']],
         order: [[0, 'desc']],
         columnDefs: [
             { targets: 4, type: 'date-eu' },

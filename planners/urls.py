@@ -38,6 +38,7 @@ urlpatterns = [
     path('pro/<int:pk>/delete/', views.ProDeleteView.as_view(), name='pro_delete'),
     path("pro/add-from-posummary/", POSummaryLookupView.as_view(), name="posummary_lookup"),
     path("pro/add-from-posummary/create/", POSummaryProCreateView.as_view(), name="posummary_pro_create"),
+    path("pro/update-from-posummary/", UpdateAllProFromPOSummaryView.as_view(), name="pro_update_from_posummary",),
 
     # ROUTINGS
     path('routings/', views.RoutingListView.as_view(), name='routing_list'),
