@@ -1019,16 +1019,25 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
         unchanged = 0
         set_inactive = 0
 
-        # log fajl (ručno)
+        # ---------- LOG SETUP ----------
         log_dir = os.path.join(settings.BASE_DIR, "log")
         os.makedirs(log_dir, exist_ok=True)
         log_path = os.path.join(log_dir, "pro_posummary_update.txt")
 
         pros = Pro.objects.filter(status=True)
+        now = datetime.datetime.now()
 
         try:
             with connections["posummary"].cursor() as cursor, \
                  open(log_path, "a", encoding="utf-8") as log_file:
+
+                # ---------- START LOG ----------
+                log_file.write("\n" + "=" * 60 + "\n")
+                log_file.write(
+                    f"{now} | POSummary BULK UPDATE STARTED\n"
+                    f"Triggered by: {request.user}\n"
+                    f"Active PRO count: {pros.count()}\n"
+                )
 
                 for pro in pros:
                     cursor.execute(query, [pro.pro_name])
@@ -1052,7 +1061,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
 
                     changes = []
 
-                    # ---------- SKU (PONOVLJENA LOGIKA) ----------
+                    # ---------- SKU ----------
                     style_part = (style or "")[:9].ljust(9)
                     color_part = (color or "")[:4].ljust(4)
                     size_part = size or ""
@@ -1116,6 +1125,13 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
                     else:
                         unchanged += 1
 
+                # ---------- FINISH LOG ----------
+                log_file.write(
+                    f"{datetime.datetime.now()} | POSummary BULK UPDATE FINISHED\n"
+                    f"Updated: {updated}, Unchanged: {unchanged}, Set Inactive: {set_inactive}\n"
+                )
+                log_file.write("=" * 60 + "\n")
+
             messages.success(
                 request,
                 f"POSummary sync finished. "
@@ -1134,6 +1150,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
 
     def get(self, request, *args, **kwargs):
         return redirect("planners:pro_list")
+
 
 
 
