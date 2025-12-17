@@ -1026,7 +1026,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
         log_path = os.path.join(log_dir, "pro_posummary_update.txt")
 
         pros = Pro.objects.filter(status=True)
-        now = datetime.datetime.now()
+        now = datetime.now()
 
         try:
             with connections["posummary"].cursor() as cursor, \
@@ -1078,7 +1078,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
                         pro.qty = qty
 
                     # ---------- DELIVERY DATE ----------
-                    if isinstance(delivery_date, datetime.datetime):
+                    if isinstance(delivery_date, datetime):
                         delivery_date = delivery_date.date()
 
                     if delivery_date != pro.del_date:
@@ -1118,7 +1118,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
                         updated += 1
 
                         log_file.write(
-                            f"{datetime.datetime.now()} | "
+                            f"{datetime.now()} | "
                             f"PRO {pro.pro_name} | "
                             + " | ".join(changes)
                             + "\n"
@@ -1128,7 +1128,7 @@ class UpdateAllProFromPOSummaryView(PlannerAccessMixin, View):
 
                 # ---------- FINISH LOG ----------
                 log_file.write(
-                    f"{datetime.datetime.now()} | POSummary BULK UPDATE FINISHED\n"
+                    f"{datetime.now()} | POSummary BULK UPDATE FINISHED\n"
                     f"Updated: {updated}, Unchanged: {unchanged}, Set Inactive: {set_inactive}\n"
                 )
                 log_file.write("=" * 60 + "\n")
