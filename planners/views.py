@@ -2174,9 +2174,240 @@ class LoginOperatorDeleteView(PlannerAccessMixin, DeleteView):
         )
         return response
 
+# ---------- LOGOUT  ----------
+
+class _LOStep1TeamUserForm(forms.Form):
+    team_user = forms.ModelChoiceField(
+        queryset=TeamUser.objects.filter(
+            is_active=True,
+            subdepartment__isnull=False
+        ).order_by("username"),
+        label="Select Team user",
+        widget=forms.Select(attrs={
+            "class": "form-select select2",
+            "id": "id_lo_team_user",
+        }),
+    )
+
+
+class _LOStep2OperatorsForm(forms.Form):
+    operators = forms.ModelMultipleChoiceField(
+        queryset=Operator.objects.none(),
+        required=True,
+        widget=forms.CheckboxSelectMultiple(
+            attrs={"class": "form-check-input"}
+        ),
+        label="Active operators (today)",
+    )
+
+    def __init__(self, *args, **kwargs):
+        qs = kwargs.pop("queryset", None)
+        super().__init__(*args, **kwargs)
+        if qs is not None:
+            self.fields["operators"].queryset = qs
+
+
+class _LOStep3TimeForm(forms.Form):
+    logoff_team_time = forms.TimeField(
+        label="Logoff team time",
+        widget=forms.TimeInput(
+            format="%H:%M",
+            attrs={"class": "form-control"}
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["logoff_team_time"].input_formats = ["%H:%M"]
+
+
+class LoginOperatorLogoutWizardView(PlannerAccessMixin, View):
+    template_name = "planners/login_operator_logout_wizard.html"
+
+    # ------------------
+    # session helpers
+    # ------------------
+    def _get_wip(self, request):
+        return request.session.get("logout_wip", {})
+
+    def _save_wip(self, request, wip):
+        request.session["logout_wip"] = wip
+        request.session.modified = True
+
+    def _render(self, request, step, form):
+        percent = int((step - 1) / 3 * 100)
+        return render(request, self.template_name, {
+            "step": step,
+            "form": form,
+            "percent": percent,
+        })
+
+    # ------------------
+    # GET
+    # ------------------
+    def get(self, request):
+        step = int(request.GET.get("step", 1))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            form = _LOStep1TeamUserForm(
+                initial={"team_user": wip.get("team_user")}
+            )
+
+        elif step == 2:
+            if not wip.get("team_user"):
+                return redirect("?step=1")
+
+            today = timezone.localdate()
+
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["team_user"],
+                login_team_date=today,
+                status="ACTIVE",
+                logoff_actual__isnull=True,
+            )
+
+            ops_qs = Operator.objects.filter(
+                pk__in=sessions.values_list("operator_id", flat=True)
+            ).distinct().order_by("badge_num")
+
+            form = _LOStep2OperatorsForm(
+                queryset=ops_qs,
+                initial={"operators": wip.get("operators", [])}
+            )
+
+        elif step == 3:
+            form = _LOStep3TimeForm(
+                initial={"logoff_team_time": wip.get("logoff_team_time")}
+            )
+
+        else:
+            return redirect("?step=1")
+
+        return self._render(request, step, form)
+
+    # ------------------
+    # POST
+    # ------------------
+    def post(self, request):
+        step = int(request.POST.get("step", 1))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            form = _LOStep1TeamUserForm(request.POST)
+            if form.is_valid():
+                wip["team_user"] = form.cleaned_data["team_user"].id
+                self._save_wip(request, wip)
+                return redirect(request.path + "?step=2")
+
+        elif step == 2:
+            today = timezone.localdate()
+
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["team_user"],
+                login_team_date=today,
+                status="ACTIVE",
+                logoff_actual__isnull=True,
+            )
+
+            ops_qs = Operator.objects.filter(
+                pk__in=sessions.values_list("operator_id", flat=True)
+            ).distinct()
+
+            form = _LOStep2OperatorsForm(request.POST, queryset=ops_qs)
+            if form.is_valid():
+                wip["operators"] = list(
+                    form.cleaned_data["operators"].values_list("id", flat=True)
+                )
+                self._save_wip(request, wip)
+                return redirect(request.path + "?step=3")
+
+
+        elif step == 3:
+            form = _LOStep3TimeForm(request.POST)
+            if form.is_valid():
+                wip["logoff_team_time"] = form.cleaned_data[
+                    "logoff_team_time"
+                ].isoformat()
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:login_operator_logout_save")
+                )
+
+        return self._render(request, step, form)
+
+
+class LoginOperatorLogoutSaveView(PlannerAccessMixin, View):
+
+    def get(self, request):
+        wip = request.session.get("logout_wip")
+
+        if not wip:
+            messages.error(request, "No logout in progress.")
+            return redirect("planners:login_operator_list")
+
+        team_user = TeamUser.objects.get(pk=wip["team_user"])
+        operator_ids = wip.get("operators", [])
+        logoff_time = time.fromisoformat(wip["logoff_team_time"])
+        today = timezone.localdate()
+
+        calendar = Calendar.objects.filter(
+            team_user=team_user,
+            date=today
+        ).first()
+
+        if not calendar:
+            messages.error(request, "No calendar entry for today.")
+            return redirect(
+                reverse("planners:login_operator_logout_wizard") + "?step=3"
+            )
+
+        if not (calendar.shift_start <= logoff_time <= calendar.shift_end):
+            messages.error(
+                request,
+                f"Time outside shift ({calendar.shift_start}–{calendar.shift_end})."
+            )
+            return redirect(
+                reverse("planners:login_operator_logout_wizard") + "?step=3"
+            )
+
+        now_utc = timezone.now()
+
+        qs = LoginOperator.objects.filter(
+            team_user=team_user,
+            operator_id__in=operator_ids,
+            status="ACTIVE",
+            logoff_actual__isnull=True,
+        )
+
+        count = 0
+        for lo in qs:
+            lo.logoff_actual = now_utc
+            lo.logoff_team_date = today
+            lo.logoff_team_time = logoff_time
+            lo.status = "COMPLETED"
+            lo.save()
+            count += 1
+
+        request.session.pop("logout_wip", None)
+        request.session.modified = True
+
+        messages.success(request, f"{count} operators logged out.")
+        return redirect("planners:login_operator_list")
+
+
+class LoginOperatorLogoutCancelView(PlannerAccessMixin, View):
+    def get(self, request):
+        request.session.pop("logout_wip", None)
+        request.session.modified = True
+        messages.info(request, "Logout canceled.")
+        return redirect("planners:login_operator_list")
+
+
+
+
 
 # ---------- Manual logout operators  ---------
-
 
 
 class ManualLogoutOperatorsView(LoginRequiredMixin, View):
@@ -2368,7 +2599,6 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
         return redirect("planners:login_operator_list")
 
 
-
 # ---------- DECLARATIONS ----------
 
 
@@ -2478,6 +2708,7 @@ class _PStep2DateForm(forms.Form):
         ),
     )
 
+
 class _PStep2ProForm(forms.Form):
     pro = forms.ModelChoiceField(queryset=Pro.objects.filter(status=True).order_by("del_date", "pro_name"), label="Select PRO")
 
@@ -2555,9 +2786,8 @@ class _PStep6OperatorsForm(forms.Form):
             self.fields["operators"].queryset = qs
 
 
-# -------------------
 # Declaration CRUD + Wizard Views
-# -------------------
+
 
 class DeclarationListView(PlannerAccessMixin, ListView):
     model = Declaration
@@ -3108,3 +3338,32 @@ def ajax_get_teamuser(request):
         except TeamUser.DoesNotExist:
             pass
     return JsonResponse(data)
+
+
+def ajax_team_user_active_logins(request):
+    team_user_id = request.GET.get("team_user")
+    today = timezone.localdate()
+
+    data = []
+
+    if team_user_id:
+        qs = (
+            LoginOperator.objects
+            .select_related("operator")
+            .filter(
+                team_user_id=team_user_id,
+                login_team_date=today,
+                status="ACTIVE",
+                logoff_actual__isnull=True,
+            )
+            .order_by("operator__badge_num")
+        )
+
+        for lo in qs:
+            data.append({
+                "id": lo.id,
+                "operator": str(lo.operator),
+                "login_time": lo.login_team_time.strftime("%H:%M"),
+            })
+
+    return JsonResponse({"results": data})
