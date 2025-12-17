@@ -13,6 +13,9 @@
       <a href="{% url 'planners:login_operator_add' %}" class="btn btn-primary btn-sm">
         + Add login
       </a>
+      <a href="{% url 'planners:login_operator_logout_wizard' %}" class="btn btn-warning btn-sm">
+        + Add logout
+      </a>
 
       <form method="post" action="{% url 'planners:manual_logout_operators' %}" class="d-inline">
         {% csrf_token %}

@@ -67,6 +67,9 @@ urlpatterns = [
     path('login-operators/add/', views.LoginOperatorCreateView.as_view(), name='login_operator_add'),
     path('login-operators/<int:pk>/edit/', views.LoginOperatorUpdateView.as_view(), name='login_operator_edit'),
     path('login-operators/<int:pk>/delete/', views.LoginOperatorDeleteView.as_view(), name='login_operator_delete'),
+    path("login-operators/logout/wizard/", views.LoginOperatorLogoutWizardView.as_view(), name="login_operator_logout_wizard",),
+    path("login-operators/logout/save/", views.LoginOperatorLogoutSaveView.as_view(), name="login_operator_logout_save",),
+    path("login-operators/logout/cancel/", views.LoginOperatorLogoutCancelView.as_view(), name="login_operator_logout_cancel", ),
 
     # MANUAL AUTO-LOGOUT
     path('login-operators/manual-logout/',ManualLogoutOperatorsView.as_view(),name='manual_logout_operators'),
@@ -86,7 +89,7 @@ urlpatterns = [
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),
     path('ajax/routing_operations/', ajax_get_routing_operations, name='ajax_get_routing_operations'),
     path('ajax/get_teamuser/', views.ajax_get_teamuser, name='ajax_get_teamuser'),
-
+    path('ajax/team-user-active-logins/',views.ajax_team_user_active_logins,name='ajax_team_user_active_logins'),
 
 
 ]
