@@ -2378,6 +2378,7 @@ class LoginOperatorLogoutSaveView(PlannerAccessMixin, View):
         qs = LoginOperator.objects.filter(
             team_user=team_user,
             operator_id__in=operator_ids,
+            login_team_date=today,
             status="ACTIVE",
             logoff_actual__isnull=True,
         )
@@ -2404,8 +2405,6 @@ class LoginOperatorLogoutCancelView(PlannerAccessMixin, View):
         request.session.modified = True
         messages.info(request, "Logout canceled.")
         return redirect("planners:login_operator_list")
-
-
 
 
 
