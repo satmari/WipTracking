@@ -430,9 +430,9 @@ class CalendarBulkCreateView(PlannerAccessMixin, FormView):
 
         # Convert HH:MM strings to time
         if isinstance(shift_start, str):
-            shift_start = datetime.datetime.strptime(shift_start, "%H:%M").time()
+            shift_start = datetime.strptime(shift_start, "%H:%M").time()
         if isinstance(shift_end, str):
-            shift_end = datetime.datetime.strptime(shift_end, "%H:%M").time()
+            shift_end = datetime.strptime(shift_end, "%H:%M").time()
 
         now_local = timezone.localtime(timezone.now())
         today = now_local.date()
@@ -887,14 +887,16 @@ class POSummaryLookupView(PlannerAccessMixin, FormView):
         cols = ["pro", "style", "color", "size", "qty", "delivery_date", "status", "destination", "tpp", "skeda"]
         fetched = dict(zip(cols, row))
 
-        # delivery_date -> JSON-serializable string (ISO) or None
         dd = fetched.get("delivery_date")
-        if isinstance(dd, datetime.datetime):
+
+        if isinstance(dd, datetime):
             dd = dd.date()
-        if isinstance(dd, datetime.date):
-            fetched["delivery_date"] = dd.isoformat()
+        elif isinstance(dd, date):
+            pass  # already date
         else:
-            fetched["delivery_date"] = dd  # keep None or existing string
+            dd = None
+
+        fetched["delivery_date"] = dd.isoformat() if dd else None
 
         # store in session
         self.request.session["posummary_fetched"] = fetched
@@ -927,7 +929,7 @@ class POSummaryProCreateView(PlannerAccessMixin, ProSubdepartmentMixin, CreateVi
                 # dd in session is ISO string
                 if isinstance(dd, str):
                     init["del_date"] = datetime.date.fromisoformat(dd)
-                elif isinstance(dd, datetime.datetime):
+                elif isinstance(dd, datetime):
                     init["del_date"] = dd.date()
                 elif isinstance(dd, datetime.date):
                     init["del_date"] = dd
@@ -2479,7 +2481,7 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
                 # If session is today, check if shift already ended
                 if login_date == today:
                     shift_end_dt = timezone.make_aware(
-                        datetime.datetime.combine(login_date, calendar_entry.shift_end),
+                        datetime.combine(login_date, calendar_entry.shift_end),
                         timezone.get_current_timezone()
                     )
 
