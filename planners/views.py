@@ -7,7 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
 from django.views.generic import (TemplateView, ListView, CreateView, UpdateView, DeleteView, FormView, DetailView )
 
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from django.contrib import messages
 from django.db import connections, transaction
 from django.shortcuts import render, redirect, get_object_or_404
@@ -43,7 +43,9 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # --- osnovni total brojevi ---
+        # =========================================================
+        # OSNOVNI TOTAL BROJEVI
+        # =========================================================
         context["users_count"] = TeamUser.objects.count()
         context["subdepartments_count"] = Subdepartment.objects.count()
         context["operators_count"] = Operator.objects.count()
@@ -53,40 +55,55 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
         context["operation_count"] = Operation.objects.count()
         context["routing_operation_count"] = RoutingOperation.objects.count()
 
-        # ---- TEAM USERS (is_active) ----
+        # =========================================================
+        # TEAM USERS (is_active)
+        # =========================================================
         context["users_active_count"] = TeamUser.objects.filter(is_active=True).count()
         context["users_inactive_count"] = TeamUser.objects.filter(is_active=False).count()
 
-        # ---- OPERATORS (act) ----
+        # =========================================================
+        # OPERATORS (act)
+        # =========================================================
         context["operators_active_count"] = Operator.objects.filter(act=True).count()
         context["operators_inactive_count"] = Operator.objects.filter(act=False).count()
 
-        # ---- PRO (status = Active) ----
+        # =========================================================
+        # PRO (status)
+        # =========================================================
         context["pro_active_count"] = Pro.objects.filter(status=True).count()
         context["pro_inactive_count"] = Pro.objects.filter(status=False).count()
 
-        # ---- ROUTING (status, ready) ----
+        # =========================================================
+        # ROUTING (status / ready)
+        # =========================================================
         context["routing_active_count"] = Routing.objects.filter(status=True).count()
         context["routing_inactive_count"] = Routing.objects.filter(status=False).count()
         context["routing_ready_count"] = Routing.objects.filter(ready=True).count()
         context["routing_not_ready_count"] = Routing.objects.filter(ready=False).count()
 
-        # ---- OPERATION (status) ----
+        # =========================================================
+        # OPERATION (status)
+        # =========================================================
         context["operation_active_count"] = Operation.objects.filter(status=True).count()
         context["operation_inactive_count"] = Operation.objects.filter(status=False).count()
 
-        # ---- LOGIN OPERATOR (status) ----
+        # =========================================================
+        # OPERATOR LOGINS (status)
+        # =========================================================
         context["active_operator_login_count"] = LoginOperator.objects.filter(status="ACTIVE").count()
         context["login_completed_count"] = LoginOperator.objects.filter(status="COMPLETED").count()
         context["login_error_count"] = LoginOperator.objects.filter(status="ERROR").count()
         context["login_ignore_count"] = LoginOperator.objects.filter(status="IGNORE").count()
 
-        # ---- DECLARATIONS (TODAY) ----
+        # =========================================================
+        # DECLARATIONS (TODAY)
+        # =========================================================
         today = timezone.localdate()
-        # broj deklaracija koji su imali decl_date = danas
-        context["declarations_count"] = Declaration.objects.filter(decl_date=today).count()
 
-        # suma qty po teamuser za danas (top 5)
+        context["declarations_count"] = Declaration.objects.filter(
+            decl_date=today
+        ).count()
+
         declarations_qty_qs = (
             Declaration.objects
             .filter(decl_date=today)
@@ -94,10 +111,43 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
             .annotate(total_qty=Sum("qty"))
             .order_by("-total_qty")
         )
-        # pretvori u listu dictova za lakše prikazivanje u template-u
         context["declarations_qty_by_user"] = list(declarations_qty_qs[:5])
 
-        # ---- SYSTEM OVERVIEW TOTAL ----
+        # =========================================================
+        # BREAKS (MASTER DATA)
+        # =========================================================
+        context["breaks_count"] = Break.objects.count()
+
+        # =========================================================
+        # OPERATOR BREAKS (DECLARATIONS)
+        # =========================================================
+        context["operator_breaks_total"] = OperatorBreak.objects.count()
+        context["operator_breaks_today"] = OperatorBreak.objects.filter(
+            date=today
+        ).count()
+
+        operator_breaks_by_team = (
+            OperatorBreak.objects
+            .filter(date=today)
+            .values(
+                "team_user__username",
+                "break_type__break_name",
+                "break_type__break_time_start",
+                "break_type__break_time_end",
+            )
+            .annotate(
+                operators_count=Count("operator", distinct=True)
+            )
+            .order_by(
+                "team_user__username",
+                "break_type__break_time_start",
+            )
+        )
+        context["operator_breaks_by_team"] = list(operator_breaks_by_team)
+
+        # =========================================================
+        # SYSTEM OVERVIEW TOTAL
+        # =========================================================
         context["system_total_count"] = (
             context["subdepartments_count"]
             + context["users_count"]
@@ -107,6 +157,8 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
             + context["routing_count"]
             + context["operation_count"]
             + context["routing_operation_count"]
+            + context["breaks_count"]
+            + context["operator_breaks_total"]
         )
 
         return context
@@ -3282,6 +3334,344 @@ class DeclarationWizardCancelView(PlannerAccessMixin, View):
         request.session.modified = True
         messages.info(request, "Declaration canceled.")
         return redirect(reverse("planners:declaration_list"))
+
+
+
+# ---------- BREAKS ----------
+
+class BreakListView(PlannerAccessMixin, ListView):
+    model = Break
+    template_name = "planners/break_list.html"
+    context_object_name = "breaks"
+    ordering = ["break_time_start"]
+
+
+class BreakCreateView(PlannerAccessMixin, CreateView):
+    model = Break
+    fields = ["break_name", "break_time_start", "break_time_end"]
+    template_name = "planners/break_form.html"
+    success_url = reverse_lazy("planners:break_list")
+
+    def form_valid(self, form):
+        start = form.cleaned_data["break_time_start"]
+        end = form.cleaned_data["break_time_end"]
+
+        start_dt = datetime.combine(datetime.today(), start)
+        end_dt = datetime.combine(datetime.today(), end)
+
+        if start_dt >= end_dt:
+            form.add_error(
+                "break_time_end",
+                "End time must be after start time."
+            )
+            return self.form_invalid(form)
+
+        if (end_dt - start_dt) != timedelta(minutes=30):
+            form.add_error(
+                "break_time_end",
+                "Break duration must be exactly 30 minutes."
+            )
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request,
+            f"Break '{form.cleaned_data['break_name']}' created."
+        )
+        return super().form_valid(form)
+
+
+class BreakUpdateView(PlannerAccessMixin, UpdateView):
+    model = Break
+    fields = ["break_name", "break_time_start", "break_time_end"]
+    template_name = "planners/break_form.html"
+    success_url = reverse_lazy("planners:break_list")
+
+    def form_valid(self, form):
+        start = form.cleaned_data["break_time_start"]
+        end = form.cleaned_data["break_time_end"]
+
+        start_dt = datetime.combine(datetime.today(), start)
+        end_dt = datetime.combine(datetime.today(), end)
+
+        if start_dt >= end_dt:
+            form.add_error(
+                "break_time_end",
+                "End time must be after start time."
+            )
+            return self.form_invalid(form)
+
+        if (end_dt - start_dt) != timedelta(minutes=30):
+            form.add_error(
+                "break_time_end",
+                "Break duration must be exactly 30 minutes."
+            )
+            return self.form_invalid(form)
+
+        messages.info(
+            self.request,
+            f"Break '{self.object.break_name}' updated."
+        )
+        return super().form_valid(form)
+
+
+class BreakDeleteView(PlannerAccessMixin, DeleteView):
+    model = Break
+    template_name = "planners/break_confirm_delete.html"
+    success_url = reverse_lazy("planners:break_list")
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        if OperatorBreak.objects.filter(break_type=self.object).exists():
+            messages.error(
+                request,
+                f"Break '{self.object.break_name}' cannot be deleted because it is already used."
+            )
+            return redirect(self.success_url)
+
+        messages.success(
+            request,
+            f"Break '{self.object.break_name}' deleted."
+        )
+        return super().delete(request, *args, **kwargs)
+
+
+
+# ---------- OPERATOR BREAK LIST ----------
+
+class OperatorBreakListView(PlannerAccessMixin, ListView):
+    model = OperatorBreak
+    template_name = "planners/operator_break_list.html"
+    context_object_name = "operator_breaks"
+
+    def get_queryset(self):
+        return (
+            OperatorBreak.objects
+            .select_related("operator", "break_type", "team_user")
+            .order_by("-date", "team_user__username", "operator__badge_num")
+        )
+
+
+class OperatorBreakUpdateView(PlannerAccessMixin, UpdateView):
+    model = OperatorBreak
+    fields = ["team_user", "date", "break_type", "operator"]
+    template_name = "planners/operator_break_form.html"
+    success_url = reverse_lazy("planners:operator_break_list")
+
+    def form_valid(self, form):
+        messages.info(self.request, "Operator break updated.")
+        return super().form_valid(form)
+
+
+class OperatorBreakDeleteView(PlannerAccessMixin, DeleteView):
+    model = OperatorBreak
+    template_name = "planners/operator_break_confirm_delete.html"
+    success_url = reverse_lazy("planners:operator_break_list")
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        messages.warning(
+            request,
+            f"Operator break deleted: "
+            f"{self.object.team_user.username} | "
+            f"{self.object.operator} | "
+            f"{self.object.date} | "
+            f"{self.object.break_type.break_name}"
+        )
+        return super().delete(request, *args, **kwargs)
+
+
+# ---------- WIZARD FORMS ----------
+
+class _OBStep1TeamUserForm(forms.Form):
+    team_user = forms.ModelChoiceField(
+        queryset=TeamUser.objects.filter(is_active=True),
+        label="Select Team user",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+
+class _OBStep2DateForm(forms.Form):
+    work_date = forms.DateField(
+        label="Select date",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+
+class _OBStep3BreakForm(forms.Form):
+    break_type = forms.ModelChoiceField(
+        queryset=Break.objects.all().order_by("break_time_start"),
+        label="Select break",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+
+class _OBStep4OperatorsForm(forms.Form):
+    operators = forms.ModelMultipleChoiceField(
+        queryset=Operator.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        label="Operators",
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        qs = kwargs.pop("queryset", None)
+        super().__init__(*args, **kwargs)
+        if qs is not None:
+            self.fields["operators"].queryset = qs
+
+
+# ---------- OPERATOR BREAK WIZARD ----------
+
+class OperatorBreakWizardView(PlannerAccessMixin, View):
+    template_name = "planners/operator_break_step.html"
+
+    # helpers
+    def _get_wip(self, request):
+        return request.session.get("operator_break_wip", {})
+
+    def _save_wip(self, request, wip):
+        request.session["operator_break_wip"] = wip
+        request.session.modified = True
+
+    def _go(self, step):
+        return redirect(
+            f"{reverse('planners:operator_break_declare')}?step={step}"
+        )
+
+    def _render(self, request, step, form):
+        return render(request, self.template_name, {
+            "step": step,
+            "form": form,
+            "percent": step * 25,
+        })
+
+    # ---------- GET ----------
+    def get(self, request):
+        step = int(request.GET.get("step", 1))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            form = _OBStep1TeamUserForm(initial={"team_user": wip.get("team_user")})
+
+        elif step == 2:
+            form = _OBStep2DateForm(initial={"work_date": wip.get("date")})
+
+        elif step == 3:
+            form = _OBStep3BreakForm(initial={"break_type": wip.get("break")})
+
+        elif step == 4:
+            work_date = date.fromisoformat(wip["date"])
+
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["team_user"],
+                login_team_date=work_date,
+                status__in=["ACTIVE", "COMPLETED"],
+            )
+
+            ops_qs = Operator.objects.filter(
+                id__in=sessions.values_list("operator_id", flat=True)
+            ).distinct()
+
+            form = _OBStep4OperatorsForm(queryset=ops_qs)
+
+        else:
+            return self._go(1)
+
+        return self._render(request, step, form)
+
+    # ---------- POST ----------
+    def post(self, request):
+        step = int(request.POST.get("step", 1))
+        wip = self._get_wip(request)
+
+        # STEP 1 — TEAM
+        if step == 1:
+            form = _OBStep1TeamUserForm(request.POST)
+            if form.is_valid():
+                wip["team_user"] = form.cleaned_data["team_user"].id
+                self._save_wip(request, wip)
+                return self._go(2)
+
+        # STEP 2 — DATE
+        elif step == 2:
+            form = _OBStep2DateForm(request.POST)
+            if form.is_valid():
+                date_val = form.cleaned_data["work_date"]
+
+                if not Calendar.objects.filter(
+                    team_user_id=wip["team_user"],
+                    date=date_val
+                ).exists():
+                    messages.error(request, "No calendar entry for selected team and date.")
+                    return self._go(2)
+
+                wip["date"] = date_val.isoformat()
+                self._save_wip(request, wip)
+                return self._go(3)
+
+        # STEP 3 — BREAK
+        elif step == 3:
+            form = _OBStep3BreakForm(request.POST)
+            if form.is_valid():
+                wip["break"] = form.cleaned_data["break_type"].id
+                self._save_wip(request, wip)
+                return self._go(4)
+
+        # STEP 4 — OPERATORS (FINAL SAVE)
+        elif step == 4:
+            work_date = date.fromisoformat(wip["date"])
+
+            sessions = LoginOperator.objects.filter(
+                team_user_id=wip["team_user"],
+                login_team_date=work_date,
+                status__in=["ACTIVE", "COMPLETED"],
+            )
+
+            ops_qs = Operator.objects.filter(
+                id__in=sessions.values_list("operator_id", flat=True)
+            ).distinct()
+
+            form = _OBStep4OperatorsForm(request.POST, queryset=ops_qs)
+            if form.is_valid():
+
+                # 🚫 RESTRIKCIJA — drugi team isti dan
+                invalid_ops = []
+                for op in form.cleaned_data["operators"]:
+                    if OperatorBreak.objects.filter(
+                        operator=op,
+                        date=work_date
+                    ).exclude(team_user_id=wip["team_user"]).exists():
+                        invalid_ops.append(str(op))
+
+                if invalid_ops:
+                    messages.error(
+                        request,
+                        "Break NOT saved. Operator(s) already have break for another team: "
+                        + ", ".join(invalid_ops)
+                    )
+                    return self._go(4)
+
+                # ✅ SAVE
+                for op in form.cleaned_data["operators"]:
+                    OperatorBreak.objects.update_or_create(
+                        team_user_id=wip["team_user"],
+                        date=work_date,
+                        operator=op,
+                        defaults={"break_type_id": wip["break"]},
+                    )
+
+                request.session.pop("operator_break_wip", None)
+                messages.success(request, "Operator break(s) declared.")
+                return redirect("planners:operator_break_list")
+
+        return self._render(request, step, form)
+
+
+
+
+
+
 
 
 # ---------- AJAX ENDPOINTS ----------

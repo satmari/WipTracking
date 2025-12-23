@@ -84,6 +84,17 @@ urlpatterns = [
     path("declarations/<int:pk>/edit/", views.DeclarationUpdateView.as_view(), name="declaration_edit"),
     path("declarations/<int:pk>/delete/", views.DeclarationDeleteView.as_view(), name="declaration_delete"),
 
+    # BREAKS
+    path("breaks/", views.BreakListView.as_view(), name="break_list"),
+    path("breaks/add/", views.BreakCreateView.as_view(), name="break_add"),
+    path("breaks/<int:pk>/edit/", views.BreakUpdateView.as_view(), name="break_edit"),
+    path("breaks/<int:pk>/delete/", views.BreakDeleteView.as_view(), name="break_delete"),
+
+    # OPERATORBREAKS
+    path("operator-breaks/", views.OperatorBreakListView.as_view(), name="operator_break_list"),
+    path("operator-breaks/<int:pk>/edit/", views.OperatorBreakUpdateView.as_view(), name="operator_break_edit"),
+    path("operator-breaks/declare/", views.OperatorBreakWizardView.as_view(), name="operator_break_declare"),
+    path("operator-breaks/<int:pk>/delete/", views.OperatorBreakDeleteView.as_view(), name="operator_break_delete",),
 
     # AJAX endpoints
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),

@@ -135,3 +135,29 @@ div.panel.panel-default {
     transform: translateY(-6px);
     pointer-events: none;
 }
+
+/* ===== DJANGO MESSAGE TOAST COLORS ===== */
+
+.django-message-info {
+  background: #cff4fc;
+  border-left: 5px solid #0dcaf0;
+  color: #055160;
+}
+
+.django-message-success {
+  background: #d1e7dd;
+  border-left: 5px solid #198754;
+  color: #0f5132;
+}
+
+.django-message-warning {
+  background: #fff3cd;
+  border-left: 5px solid #ffc107;
+  color: #664d03;
+}
+
+.django-message-error {
+  background: #f8d7da;
+  border-left: 5px solid #dc3545;
+  color: #842029;
+}
