@@ -22,6 +22,39 @@
       .django-message-body{ font-size:.85rem; }
       .django-message-hide{ opacity:0; transform:translateY(-6px); transition:opacity .4s ease, transform .4s ease; }
       @keyframes djangoToastSlideIn { from{ opacity:0; transform:translateY(-10px) translateX(10px);} to{opacity:1; transform:translateY(0);} }
+
+        /* ===== DJANGO MESSAGE TYPES ===== */
+
+        .django-message-toast.django-message-error {
+          background: #f8d7da;
+          border-left: 4px solid #dc3545;
+          color: #842029;
+        }
+
+        .django-message-toast.django-message-warning {
+          background: #fff3cd;
+          border-left: 4px solid #ffc107;
+          color: #664d03;
+        }
+
+        .django-message-toast.django-message-success {
+          background: #d1e7dd;
+          border-left: 4px solid #198754;
+          color: #0f5132;
+        }
+
+        .django-message-toast.django-message-info {
+          background: #e0f2fe;
+          border-left: 4px solid #0ea5e9;
+          color: #0f172a;
+        }
+
+        .alert-info {
+          background-color: #f8d7da !important;
+          border-color: #dc3545 !important;
+          color: #842029 !important;
+        }
+
     </style>
 
     {% block extra_head %}{% endblock %}

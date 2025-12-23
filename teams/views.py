@@ -8,16 +8,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.forms.widgets import CheckboxSelectMultiple
 
-from core.models import (
-    Operator,
-    LoginOperator,
-    Calendar,
-    Pro,
-    Routing,
-    RoutingOperation,
-    Declaration,
-    Subdepartment,
-)
+from core.models import *
 
 
 class TeamAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -710,3 +701,187 @@ class DeclarationWizardCancelView(TeamAccessMixin, View):
 
         messages.info(request, "Declaration canceled.")
         return redirect(reverse("teams:team_dashboard"))
+
+
+
+# ---------- DECLARE BREAK (INLINE FORMS) ----------
+
+class _BreakStep1Form(forms.Form):
+    break_type = forms.ChoiceField(
+        label="Select break",
+        required=True,
+        choices=[],  # puni se ručno
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        choices = [("", "— Select break —")]
+        for b in Break.objects.all().order_by("break_time_start"):
+            choices.append((
+                str(b.id),
+                f"{b.break_name} ({b.break_time_start:%H:%M}–{b.break_time_end:%H:%M})"
+            ))
+
+        self.fields["break_type"].choices = choices
+        self.fields["break_type"].widget.attrs.update({
+            "class": "form-select",
+        })
+
+
+
+
+class _BreakStep2OperatorsForm(forms.Form):
+    operators = forms.ModelMultipleChoiceField(
+        queryset=Operator.objects.none(),
+        widget=CheckboxSelectMultiple,
+        label="Operators",
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        qs = kwargs.pop("queryset", None)
+        super().__init__(*args, **kwargs)
+        if qs is not None:
+            self.fields["operators"].queryset = qs
+
+
+class DeclareBreakWizardView(TeamAccessMixin, View):
+    template_name = "teams/declare_break_step.html"
+
+    def _render(self, request, step, form):
+        checkbox_fields = [
+            name for name, f in form.fields.items()
+            if isinstance(f.widget, CheckboxSelectMultiple)
+        ]
+        return render(request, self.template_name, {
+            "step": step,
+            "form": form,
+            "percent": 50 if step == 2 else 0,
+            "checkbox_fields": checkbox_fields,
+        })
+
+    def get(self, request, *args, **kwargs):
+        step = int(request.GET.get("step", 1))
+        wip = request.session.get("break_wip", {})
+
+        if step == 1:
+            if wip.get("break"):
+                form = _BreakStep1Form(initial={"break_type": wip.get("break")})
+            else:
+                form = _BreakStep1Form()
+
+        elif step == 2:
+            today = timezone.localdate()
+
+            sessions = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=today,
+                status="ACTIVE",
+            ).select_related("operator")
+
+            ops_qs = Operator.objects.filter(
+                id__in=sessions.values_list("operator_id", flat=True)
+            ).distinct().order_by("badge_num")
+
+            form = _BreakStep2OperatorsForm(
+                queryset=ops_qs,
+                initial={"operators": wip.get("operators", [])},
+            )
+        else:
+            return redirect(f"{reverse('teams:declare_break')}?step=1")
+
+        return self._render(request, step, form)
+
+    def post(self, request, *args, **kwargs):
+        step = int(request.POST.get("step", 1))
+        wip = request.session.get("break_wip", {})
+
+        if step == 1:
+            form = _BreakStep1Form(request.POST)
+            if form.is_valid():
+                wip["break"] = int(form.cleaned_data["break_type"])
+                request.session["break_wip"] = wip
+                return redirect(f"{reverse('teams:declare_break')}?step=2")
+
+        elif step == 2:
+            today = timezone.localdate()
+
+            sessions = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=today,
+                status="ACTIVE",
+            )
+
+            ops_qs = Operator.objects.filter(
+                id__in=sessions.values_list("operator_id", flat=True)
+            ).distinct()
+
+            form = _BreakStep2OperatorsForm(request.POST, queryset=ops_qs)
+            if form.is_valid():
+                wip["operators"] = list(
+                    form.cleaned_data["operators"].values_list("id", flat=True)
+                )
+                request.session["break_wip"] = wip
+                return redirect("teams:declare_break_save")
+
+        return self._render(request, step, form)
+
+
+class DeclareBreakSaveView(TeamAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        wip = request.session.get("break_wip")
+        if not wip:
+            messages.error(request, "No break declaration in progress.")
+            return redirect("teams:team_dashboard")
+
+        break_type = get_object_or_404(Break, id=wip["break"])
+        today = timezone.localdate()
+        team_user = request.user
+
+        # PRAVILO 3:
+        # operator ima pauzu danas, ali za DRUGI team → ERROR
+        conflicts = OperatorBreak.objects.filter(
+            operator_id__in=wip["operators"],
+            date=today,
+        ).exclude(team_user=team_user)
+
+        if conflicts.exists():
+            ops = ", ".join(
+                str(ob.operator) for ob in conflicts.select_related("operator")
+            )
+            messages.error(
+                request,
+                f"Break NOT saved. Operator(s) already have a break today for another team: {ops}"
+            )
+            request.session.pop("break_wip", None)
+            return redirect("teams:team_dashboard")
+
+        created_count = 0
+        updated_count = 0
+
+        # PRAVILO 1 i 2:
+        # - nema pauze → CREATE
+        # - ima pauzu za isti team → OVERWRITE
+        for op_id in wip["operators"]:
+            obj, created = OperatorBreak.objects.update_or_create(
+                date=today,
+                operator_id=op_id,
+                team_user=team_user,
+                defaults={
+                    "break_type": break_type,
+                }
+            )
+
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        request.session.pop("break_wip", None)
+
+        messages.success(
+            request,
+            f"Break saved: {created_count} created, {updated_count} updated."
+        )
+        return redirect("teams:team_dashboard")

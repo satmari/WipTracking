@@ -1,0 +1,40 @@
+{% extends "core/base.html" %}
+
+{% block title %}Delete Operator Break{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h1 class="h4 mb-3">Delete Operator Break</h1>
+
+  <div class="alert alert-danger">
+    <strong>Are you sure you want to delete this break?</strong>
+    <ul class="mb-0 mt-2">
+      <li><strong>Team:</strong> {{ object.team_user.username }}</li>
+      <li><strong>Operator:</strong> {{ object.operator }}</li>
+      <li><strong>Date:</strong> {{ object.date|date:"d.m.Y." }}</li>
+      <li>
+        <strong>Break:</strong>
+        {{ object.break_type.break_name }}
+        ({{ object.break_type.break_time_start|time:"H:i" }} –
+         {{ object.break_type.break_time_end|time:"H:i" }})
+      </li>
+    </ul>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <a href="{% url 'planners:operator_break_list' %}"
+       class="btn btn-secondary btn-sm">
+      Cancel
+    </a>
+
+    <button type="submit"
+            class="btn btn-danger btn-sm">
+      Yes, delete
+    </button>
+  </form>
+
+</div>
+{% endblock %}

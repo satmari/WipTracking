@@ -1,0 +1,75 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {% if object %}Edit Break{% else %}Add Break{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h1 class="h4 mb-3">
+    {% if object %}Edit Break{% else %}Add Break{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+
+        {# NON-FIELD ERRORS (ako ih ima) #}
+        {% if form.non_field_errors %}
+          <div class="col-12">
+            <div class="alert alert-danger">
+              {{ form.non_field_errors }}
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="col-md-6">
+          <label class="form-label">Break name</label>
+          {{ form.break_name|add_class:"form-control" }}
+          {% if form.break_name.errors %}
+            <div class="text-danger small">
+              {{ form.break_name.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Start time</label>
+          {{ form.break_time_start|add_class:"form-control" }}
+          {% if form.break_time_start.errors %}
+            <div class="text-danger small">
+              {{ form.break_time_start.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">End time</label>
+          {{ form.break_time_end|add_class:"form-control" }}
+          {% if form.break_time_end.errors %}
+            <div class="text-danger small">
+              {{ form.break_time_end.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:break_list' %}"
+             class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+
+          <button type="submit" class="btn btn-primary btn-sm">
+            {% if object %}Save changes{% else %}Create Break{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

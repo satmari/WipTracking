@@ -1,0 +1,204 @@
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block title %}Declare Break — Step {{ step }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .declaration-card .card-body { padding: 1.4rem; }
+  .declaration-form-label { font-weight: 600; display:block; margin-bottom: .4rem; }
+
+  .wizard-step-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: .2px;
+  }
+
+  .wizard-progress {
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .wizard-progress .progress-bar { transition: width .35s ease; }
+
+  .ops-list {
+    padding: .35rem;
+    border-radius: .45rem;
+    background: #fbfcfd;
+  }
+
+  .ops-list .form-check {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    margin-bottom: .6rem;
+    padding: .45rem .5rem;
+    border-radius: .4rem;
+  }
+
+  .ops-list .form-check input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  .ops-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: .5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <div class="mb-4 text-center">
+    <div class="wizard-step-title mb-2">
+      {% if step == 1 %}
+        Choose Break
+      {% else %}
+        Select Operators
+      {% endif %}
+    </div>
+
+    <div class="text-muted small mb-2">Step {{ step }} of 2</div>
+
+    <div class="progress wizard-progress mx-auto" style="max-width:600px;">
+      <div class="progress-bar" style="width: {{ percent }}%;"></div>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-sm declaration-card mb-3">
+        <div class="card-body">
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step }}">
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label class="declaration-form-label">
+                  {{ field.label }}
+                  {% if field.field.required %}
+                    <span class="text-danger">*</span>
+                  {% endif %}
+                </label>
+
+                {% if field.name in checkbox_fields %}
+                  <div class="ops-toolbar">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary js-ops-toggle">
+                      Check all
+                    </button>
+                  </div>
+
+                  <div class="ops-list">
+                    {% for checkbox in field %}
+                      <div class="form-check">
+                        {{ checkbox.tag }}
+                        <label for="{{ checkbox.id_for_label }}">
+                          {{ checkbox.choice_label }}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  {{ field }}
+                {% endif %}
+
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {{ field.errors|striptags }}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <div class="d-flex justify-content-between">
+              <a class="btn btn-outline-secondary"
+                 href="{% url 'teams:team_dashboard' %}">
+                ← Cancel
+              </a>
+
+              {% if step < 2 %}
+                <button type="submit" class="btn btn-primary">Next →</button>
+              {% else %}
+                <button type="submit" class="btn btn-success">Save</button>
+              {% endif %}
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<script>
+(function($){
+  $(document).ready(function(){
+
+    /* ===== SELECT2 FOR BREAK ===== */
+    const $break = $('#id_break_type');
+    if ($break.length) {
+      $break.select2({
+        width: '100%',
+        placeholder: '— Select break —',
+        allowClear: true
+      });
+
+      // FORCE EMPTY (NO AUTO SELECT)
+      $break.val('').trigger('change');
+    }
+
+    /* ===== CHECK / UNCHECK ALL OPERATORS ===== */
+    $(document).on('click', '.js-ops-toggle', function(e){
+      e.preventDefault();
+
+      const $btn = $(this);
+      const $inputs = $("input[type='checkbox'][name='operators']");
+      const allChecked = $inputs.length === $inputs.filter(':checked').length;
+
+      if (allChecked) {
+        $inputs.prop('checked', false);
+        $btn.text('Check all')
+            .removeClass('btn-outline-danger')
+            .addClass('btn-outline-primary');
+      } else {
+        $inputs.prop('checked', true);
+        $btn.text('Uncheck all')
+            .removeClass('btn-outline-primary')
+            .addClass('btn-outline-danger');
+      }
+    });
+
+    $(document).on('change', "input[type='checkbox'][name='operators']", function(){
+      const $inputs = $("input[type='checkbox'][name='operators']");
+      const $btn = $('.js-ops-toggle');
+      if (!$btn.length) return;
+
+      if ($inputs.length === $inputs.filter(':checked').length) {
+        $btn.text('Uncheck all')
+            .removeClass('btn-outline-primary')
+            .addClass('btn-outline-danger');
+      } else {
+        $btn.text('Check all')
+            .removeClass('btn-outline-danger')
+            .addClass('btn-outline-primary');
+      }
+    });
+
+  });
+})(jQuery);
+</script>
+{% endblock %}

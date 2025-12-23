@@ -518,3 +518,78 @@ class Declaration(models.Model):
 
     def __str__(self):
         return f"Decl {self.id} - {self.pro} / {self.routing} / {self.qty}"
+
+
+# --------- BREAK ---------
+
+class Break(models.Model):
+    break_name = models.CharField(
+        max_length=100,
+        verbose_name="Break name",
+    )
+
+    break_time_start = models.TimeField(
+        verbose_name="Break time start",
+    )
+
+    break_time_end = models.TimeField(
+        verbose_name="Break time end",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Break"
+        verbose_name_plural = "Breaks"
+        ordering = ["break_time_start"]
+
+    def __str__(self):
+        return f"{self.break_name} ({self.break_time_start}–{self.break_time_end})"
+
+
+# --------- OPERATOR BREAK ---------
+
+class OperatorBreak(models.Model):
+    date = models.DateField(
+        verbose_name="Date",
+    )
+
+    operator = models.ForeignKey(
+        Operator,
+        on_delete=models.CASCADE,
+        related_name="operator_breaks",
+        verbose_name="Operator",
+    )
+
+    team_user = models.ForeignKey(
+        TeamUser,
+        on_delete=models.CASCADE,
+        related_name="team_operator_breaks",
+        verbose_name="Team user",
+    )
+
+    break_type = models.ForeignKey(
+        Break,
+        on_delete=models.CASCADE,
+        related_name="operator_breaks",
+        verbose_name="Break",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Operator Break"
+        verbose_name_plural = "Operator Breaks"
+        ordering = ["-date", "operator"]
+        constraints = [
+            # 1 pauza po operatoru + team + dan
+            models.UniqueConstraint(
+                fields=["date", "operator", "team_user"],
+                name="unique_operator_break_per_team_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.date} - {self.operator} / {self.team_user} / {self.break_type}"

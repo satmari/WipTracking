@@ -13,4 +13,8 @@ urlpatterns = [
     path('declare-output/', DeclarationWizardView.as_view(), name='declare_output'),
     path('declare-output/save/', DeclarationSaveView.as_view(), name='declare_output_save'),
     path('declare-output/cancel/', DeclarationWizardCancelView.as_view(), name='declare_output_cancel'),
+
+    path("declare-break/", DeclareBreakWizardView.as_view(), name="declare_break"),
+    path("declare-break/save/", DeclareBreakSaveView.as_view(), name="declare_break_save"),
+
 ]

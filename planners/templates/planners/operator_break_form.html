@@ -1,0 +1,51 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Edit Operator Break{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h1 class="h4 mb-3">Edit Operator Break</h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+
+        <div class="col-md-4">
+          <label class="form-label">Team</label>
+          {{ form.team_user|add_class:"form-select" }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Date</label>
+          {{ form.date|add_class:"form-control" }}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Break</label>
+          {{ form.break_type|add_class:"form-select" }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Operator</label>
+          {{ form.operator|add_class:"form-select" }}
+        </div>
+
+        <div class="col-12 mt-3">
+          <a href="{% url 'planners:operator_break_list' %}"
+             class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+          <button class="btn btn-primary btn-sm">
+            Save
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -477,3 +477,66 @@ class DeclarationAdmin(admin.ModelAdmin):
         ("Work info", {"fields": ("pro", "routing", "routing_operation", "qty", "smv", "smv_ita", "operators")}),
         ("Audit info", {"fields": ("created_at", "updated_at")}),
     )
+
+
+# ------- BREAK -------
+@admin.register(Break)
+class BreakAdmin(admin.ModelAdmin):
+
+    def created_at_fmt(self, obj):
+        return format_datetime(obj.created_at)
+    created_at_fmt.short_description = "Created"
+
+    def updated_at_fmt(self, obj):
+        return format_datetime(obj.updated_at)
+    updated_at_fmt.short_description = "Updated"
+
+    list_display = (
+        "id",
+        "break_name",
+        "break_time_start",
+        "break_time_end",
+        "created_at_fmt",
+        "updated_at_fmt",
+    )
+
+    search_fields = ("break_name",)
+    ordering = ("break_time_start",)
+    readonly_fields = ("created_at", "updated_at")
+
+
+# ------- OPERATOR BREAK -------
+@admin.register(OperatorBreak)
+class OperatorBreakAdmin(admin.ModelAdmin):
+
+    def created_at_fmt(self, obj):
+        return format_datetime(obj.created_at)
+    created_at_fmt.short_description = "Created"
+
+    def updated_at_fmt(self, obj):
+        return format_datetime(obj.updated_at)
+    updated_at_fmt.short_description = "Updated"
+
+    list_display = (
+        "id",
+        "date",
+        "operator",
+        "break_type",
+        "created_at_fmt",
+        "updated_at_fmt",
+    )
+
+    list_filter = (
+        "date",
+        "break_type",
+        "operator",
+    )
+
+    search_fields = (
+        "operator__badge_num",
+        "operator__name",
+        "break_type__break_name",
+    )
+
+    ordering = ("-date", "operator")
+    readonly_fields = ("created_at", "updated_at")
