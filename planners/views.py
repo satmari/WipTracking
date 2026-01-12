@@ -1,13 +1,14 @@
 # planners/views.py
 from django import forms
-import datetime
+# import datetime
+from datetime import datetime, date, time, timedelta
 import os
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
 from django.views.generic import (TemplateView, ListView, CreateView, UpdateView, DeleteView, FormView, DetailView )
 
-from datetime import datetime, date, time, timedelta
+
 from django.contrib import messages
 from django.db import connections, transaction
 from django.shortcuts import render, redirect, get_object_or_404
@@ -507,7 +508,8 @@ class CalendarBulkCreateView(PlannerAccessMixin, FormView):
 
         for s in selected_str_dates:
             try:
-                d = datetime.date.fromisoformat(s)
+                # d = datetime.date.fromisoformat(s)
+                d = date.fromisoformat(s)
             except ValueError:
                 continue
             if date_from <= d <= date_to:
@@ -980,7 +982,8 @@ class POSummaryProCreateView(PlannerAccessMixin, ProSubdepartmentMixin, CreateVi
             try:
                 # dd in session is ISO string
                 if isinstance(dd, str):
-                    init["del_date"] = datetime.date.fromisoformat(dd)
+                    # init["del_date"] = datetime.date.fromisoformat(dd)
+                    init["del_date"] = date.fromisoformat(dd)
                 elif isinstance(dd, datetime):
                     init["del_date"] = dd.date()
                 elif isinstance(dd, datetime.date):
