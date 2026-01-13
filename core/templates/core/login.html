@@ -1,24 +1,93 @@
 {% extends "core/base.html" %}
-
 {% load static %}
+
 {% block content %}
 <div class="container d-flex justify-content-center align-items-center" style="height: 60vh;">
-    <div class="card p-4 shadow" style="width: 350px;">
-        <h3 class="text-center">Login</h3>
+    <div class="card p-4 shadow" style="width: 380px;">
+        <h3 class="text-center mb-3">Login</h3>
 
-
-        <form method="post">
+        <form method="post" autocomplete="off">
             {% csrf_token %}
+
+            <!-- Select TeamUser -->
             <div class="mb-3">
-                <label for="id_username" class="form-label">Team or TeamUser</label>
-                <input type="text" class="form-control" name="username" id="id_username" required>
+                <label class="form-label">Select TeamUser (for Tablet)</label>
+                <select class="form-select" id="teamUserSelect">
+                    <option value="">-- select --</option>
+                    {% for u in team_users %}
+                        <option value="{{ u.username }}">{{ u.username }}</option>
+                    {% endfor %}
+                </select>
             </div>
+            <br>
+            <hr>
+            <br>
+
+            <!-- Username -->
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Username</label>
+                <input
+                    type="text"
+                    class="form-control"
+                    name="username"
+                    id="id_username"
+                    required
+                >
+            </div>
+
+            <!-- Password -->
             <div class="mb-3">
                 <label for="id_password" class="form-label">Password</label>
-                <input type="password" class="form-control" name="password" id="id_password" required>
+                <input
+                    type="password"
+                    class="form-control"
+                    name="password"
+                    id="id_password"
+                    required
+                >
             </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
+
+            <button type="submit" class="btn btn-primary w-100">
+                Login
+            </button>
         </form>
     </div>
 </div>
+
+<!-- JS -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('teamUserSelect');
+    const usernameInput = document.getElementById('id_username');
+    const passwordInput = document.getElementById('id_password');
+
+    // Ako koristiš Select2
+    if (window.jQuery && $(select).length) {
+        $(select).select2({
+            width: '100%',
+            placeholder: 'Select TeamUser',
+            allowClear: true
+        });
+
+        $(select).on('select2:select', function (e) {
+            const value = e.params.data.id;
+            usernameInput.value = value;
+            passwordInput.value = value;
+        });
+
+        $(select).on('select2:clear', function () {
+            usernameInput.value = '';
+            passwordInput.value = '';
+        });
+    }
+
+    // Fallback za običan select
+    select.addEventListener('change', function () {
+        if (this.value) {
+            usernameInput.value = this.value;
+            passwordInput.value = this.value;
+        }
+    });
+});
+</script>
 {% endblock %}

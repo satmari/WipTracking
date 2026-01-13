@@ -2,6 +2,7 @@
 from django.contrib.auth import logout, authenticate, login
 from django.contrib import messages
 from django.shortcuts import redirect, render
+from django.contrib.auth import get_user_model
 
 app_name = 'core'
 
@@ -43,11 +44,15 @@ def login_view(request):
                 return redirect('teams:team_dashboard')
             else:
                 return redirect('core:main_page')
-
         else:
             messages.error(request, 'Invalid username or password.')
 
-    return render(request, 'core/login.html')
+    User = get_user_model()
+    team_users = User.objects.filter(groups__name__iexact='TEAMS',is_active=True).order_by('username')
+
+    return render(request, 'core/login.html', {
+        'team_users': team_users
+    })
 
 
 def logout_view(request):
