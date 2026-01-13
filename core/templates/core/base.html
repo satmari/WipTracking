@@ -59,6 +59,18 @@
 
     {% block extra_head %}{% endblock %}
 </head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SEYKXD71MH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  // MODIFIED CONFIGURATION FOR INTRANET IP
+  gtag('config', 'G-SEYKXD71MH', {
+    'cookie_domain': 'none'
+  });
+</script>
 
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
