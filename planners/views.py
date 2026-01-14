@@ -362,7 +362,7 @@ class TeamUserListView(PlannerAccessMixin, ListView):
 
 class TeamUserCreateView(PlannerAccessMixin, CreateView):
     model = TeamUser
-    fields = ["username", "first_name", "last_name", "subdepartment", "is_active"]
+    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "is_active"]
     template_name = "planners/user_form.html"
     success_url = reverse_lazy("planners:user_list")
 
@@ -388,7 +388,7 @@ class TeamUserCreateView(PlannerAccessMixin, CreateView):
 
 class TeamUserUpdateView(PlannerAccessMixin, UpdateView):
     model = TeamUser
-    fields = ["username", "first_name", "last_name", "subdepartment", "is_active"]
+    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "is_active"]
     template_name = "planners/user_form.html"
     success_url = reverse_lazy("planners:user_list")
 

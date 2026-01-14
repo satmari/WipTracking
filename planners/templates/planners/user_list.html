@@ -21,6 +21,7 @@
             <th>Username</th>
             <th>Name</th>
             <th>Subdepartment</th>
+            <th>Team Location</th>
             <th>Active</th>
             <th>Created</th>
             <th>Updated</th>
@@ -34,6 +35,7 @@
             <td>{{ u.username }}</td>
             <td>{{ u.first_name }} {{ u.last_name }}</td>
             <td>{{ u.subdepartment }}</td>
+            <td>{{ u.team_location|default:"-" }}</td>
             <td>
               {% if u.is_active %}
                 <span class="badge bg-success">Active</span>

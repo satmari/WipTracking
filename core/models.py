@@ -55,6 +55,13 @@ class TeamUser(AbstractUser):
         verbose_name="Subdepartment",
     )
 
+    team_location = models.CharField(  # NOVO POLJE
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Team location",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
