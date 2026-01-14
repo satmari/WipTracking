@@ -70,7 +70,7 @@ class TeamUserAdmin(UserAdmin):
         return format_datetime(obj.updated_at)
     updated_at_fmt.short_description = "Updated"
 
-    # NOVO: prikaz grupa u listi
+    # Prikaz grupa u listi
     def groups_list(self, obj):
         groups = obj.groups.all()
         return ", ".join([g.name for g in groups]) if groups else "-"
@@ -80,6 +80,7 @@ class TeamUserAdmin(UserAdmin):
         "id",
         "username",
         "subdepartment",
+        "team_location",
         "groups_list",
         "is_staff",
         "is_active",
@@ -87,13 +88,35 @@ class TeamUserAdmin(UserAdmin):
         "updated_at_fmt",
     )
 
-    list_filter = ("subdepartment", "is_staff", "is_active", "groups")
-    search_fields = ("username", "subdepartment__subdepartment")
+    list_filter = (
+        "subdepartment",
+        "team_location",
+        "is_staff",
+        "is_active",
+        "groups",
+    )
+
+    search_fields = (
+        "username",
+        "team_location",
+        "subdepartment__subdepartment",
+    )
+
     ordering = ("username",)
 
     fieldsets = (
         (None, {"fields": ("username", "password")}),
-        ("Personal info", {"fields": ("first_name", "last_name", "subdepartment")}),
+        (
+            "Personal info",
+            {
+                "fields": (
+                    "first_name",
+                    "last_name",
+                    "subdepartment",
+                    "team_location",
+                )
+            },
+        ),
         ("Audit info", {"fields": ("created_at", "updated_at")}),
         (
             "Permissions",
@@ -118,6 +141,7 @@ class TeamUserAdmin(UserAdmin):
                 "fields": (
                     "username",
                     "subdepartment",
+                    "team_location",
                     "password1",
                     "password2",
                     "is_active",
