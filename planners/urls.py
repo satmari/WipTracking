@@ -96,6 +96,9 @@ urlpatterns = [
     path("operator-breaks/declare/", views.OperatorBreakWizardView.as_view(), name="operator_break_declare"),
     path("operator-breaks/<int:pk>/delete/", views.OperatorBreakDeleteView.as_view(), name="operator_break_delete",),
 
+    # OPERATOR CAPACITY
+    path("operator-capacity/",OperatorCapacityTodayView.as_view(),name="operator_capacity_today",),
+
     # AJAX endpoints
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),
     path('ajax/routing_operations/', ajax_get_routing_operations, name='ajax_get_routing_operations'),

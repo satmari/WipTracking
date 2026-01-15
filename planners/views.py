@@ -3,6 +3,8 @@ from django import forms
 # import datetime
 from datetime import datetime, date, time, timedelta
 import os
+from decimal import Decimal
+
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
@@ -44,6 +46,8 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        today = timezone.localdate()
+
         # =========================================================
         # OSNOVNI TOTAL BROJEVI
         # =========================================================
@@ -56,111 +60,75 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
         context["operation_count"] = Operation.objects.count()
         context["routing_operation_count"] = RoutingOperation.objects.count()
 
-        # =========================================================
-        # TEAM USERS (is_active)
-        # =========================================================
         context["users_active_count"] = TeamUser.objects.filter(is_active=True).count()
         context["users_inactive_count"] = TeamUser.objects.filter(is_active=False).count()
 
-        # =========================================================
-        # OPERATORS (act)
-        # =========================================================
         context["operators_active_count"] = Operator.objects.filter(act=True).count()
         context["operators_inactive_count"] = Operator.objects.filter(act=False).count()
 
-        # =========================================================
-        # PRO (status)
-        # =========================================================
         context["pro_active_count"] = Pro.objects.filter(status=True).count()
         context["pro_inactive_count"] = Pro.objects.filter(status=False).count()
 
-        # =========================================================
-        # ROUTING (status / ready)
-        # =========================================================
         context["routing_active_count"] = Routing.objects.filter(status=True).count()
         context["routing_inactive_count"] = Routing.objects.filter(status=False).count()
         context["routing_ready_count"] = Routing.objects.filter(ready=True).count()
         context["routing_not_ready_count"] = Routing.objects.filter(ready=False).count()
 
-        # =========================================================
-        # OPERATION (status)
-        # =========================================================
         context["operation_active_count"] = Operation.objects.filter(status=True).count()
         context["operation_inactive_count"] = Operation.objects.filter(status=False).count()
 
-        # =========================================================
-        # OPERATOR LOGINS (status)
-        # =========================================================
         context["active_operator_login_count"] = LoginOperator.objects.filter(status="ACTIVE").count()
         context["login_completed_count"] = LoginOperator.objects.filter(status="COMPLETED").count()
-        context["login_error_count"] = LoginOperator.objects.filter(status="ERROR").count()
         context["login_ignore_count"] = LoginOperator.objects.filter(status="IGNORE").count()
+        context["login_error_count"] = LoginOperator.objects.filter(status="ERROR").count()
 
         # =========================================================
         # DECLARATIONS (TODAY)
         # =========================================================
-        today = timezone.localdate()
+        context["declarations_count"] = Declaration.objects.filter(decl_date=today).count()
 
-        context["declarations_count"] = Declaration.objects.filter(
-            decl_date=today
-        ).count()
-
-        declarations_qty_qs = (
+        context["declarations_qty_by_user"] = list(
             Declaration.objects
             .filter(decl_date=today)
             .values("teamuser__username")
             .annotate(total_qty=Sum("qty"))
-            .order_by("-total_qty")
+            .order_by("-total_qty")[:5]
         )
-        context["declarations_qty_by_user"] = list(declarations_qty_qs[:5])
 
         # =========================================================
-        # BREAKS (MASTER DATA)
+        # BREAKS
         # =========================================================
         context["breaks_count"] = Break.objects.count()
-
-        # =========================================================
-        # OPERATOR BREAKS (DECLARATIONS)
-        # =========================================================
         context["operator_breaks_total"] = OperatorBreak.objects.count()
-        context["operator_breaks_today"] = OperatorBreak.objects.filter(
-            date=today
-        ).count()
+        context["operator_breaks_today"] = OperatorBreak.objects.filter(date=today).count()
 
-        operator_breaks_by_team = (
+        context["operator_breaks_by_team"] = list(
             OperatorBreak.objects
             .filter(date=today)
             .values(
                 "team_user__username",
-                "break_type__break_name",
                 "break_type__break_time_start",
                 "break_type__break_time_end",
             )
-            .annotate(
-                operators_count=Count("operator", distinct=True)
-            )
-            .order_by(
-                "team_user__username",
-                "break_type__break_time_start",
-            )
+            .annotate(operators_count=Count("operator", distinct=True))
+            .order_by("team_user__username", "break_type__break_time_start")
         )
-        context["operator_breaks_by_team"] = list(operator_breaks_by_team)
 
         # =========================================================
-        # SYSTEM OVERVIEW TOTAL
+        # OPERATOR CAPACITY – TODAY (ONLY COUNT)
         # =========================================================
-        context["system_total_count"] = (
-            context["subdepartments_count"]
-            + context["users_count"]
-            + context["operators_count"]
-            + context["calendar_count"]
-            + context["pro_count"]
-            + context["routing_count"]
-            + context["operation_count"]
-            + context["routing_operation_count"]
-            + context["breaks_count"]
-            + context["operator_breaks_total"]
+        context["operator_capacity_count"] = (
+            LoginOperator.objects
+            .filter(
+                login_team_date=today,
+                status__in=["ACTIVE", "COMPLETED"]
+            )
+            .values("operator")
+            .distinct()
+            .count()
         )
+
+
 
         return context
 
@@ -3671,7 +3639,131 @@ class OperatorBreakWizardView(PlannerAccessMixin, View):
         return self._render(request, step, form)
 
 
+# ---------- OPERATOR CAPACITY ----------
 
+
+
+class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
+    template_name = "planners/operator_capacity_today.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # -----------------------------------
+        # DATE HANDLING
+        # -----------------------------------
+        date_str = self.request.GET.get("date")
+        if date_str:
+            try:
+                selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                selected_date = timezone.localdate()
+        else:
+            selected_date = timezone.localdate()
+
+        operator_capacity = []
+
+        # -----------------------------------
+        # OPERATORS WITH ACTIVITY
+        # -----------------------------------
+        operators_today = Operator.objects.filter(
+            operators__login_team_date=selected_date,
+            operators__status__in=["ACTIVE", "COMPLETED"]
+        ).distinct()
+
+        for op in operators_today:
+
+            # =========================
+            # AVAILABLE (LOGIN TIME)
+            # =========================
+            sessions = LoginOperator.objects.filter(
+                operator=op,
+                login_team_date=selected_date,
+                status__in=["ACTIVE", "COMPLETED"],
+                login_team_time__isnull=False,
+                logoff_team_time__isnull=False,
+            ).order_by("login_team_time")
+
+            available_minutes = Decimal("0.0")
+            available_start = None
+            available_end = None
+
+            if sessions.exists():
+                available_start = sessions.first().login_team_time
+                available_end = sessions.last().logoff_team_time
+
+                for s in sessions:
+                    dt_start = datetime.combine(selected_date, s.login_team_time)
+                    dt_end = datetime.combine(selected_date, s.logoff_team_time)
+                    delta_min = Decimal(
+                        (dt_end - dt_start).total_seconds()
+                    ) / Decimal("60")
+                    available_minutes += delta_min
+
+            break_count = OperatorBreak.objects.filter(
+                operator=op,
+                date=selected_date
+            ).count()
+
+            available_minutes -= Decimal(break_count) * Decimal("30")
+            available_minutes = max(available_minutes, Decimal("0.0"))
+            available_minutes = available_minutes.quantize(Decimal("0.1"))
+
+            # =========================
+            # WORKED (DECLARATIONS)
+            # =========================
+            declarations = Declaration.objects.filter(
+                decl_date=selected_date,
+                operators=op,
+                smv__isnull=False,
+            )
+
+            worked_minutes = Decimal("0.0")
+            total_qty = 0
+            smv_values = []
+
+            for d in declarations:
+                worked_minutes += Decimal(d.qty) * d.smv
+                total_qty += d.qty
+                smv_values.append(d.smv)
+
+            worked_minutes = worked_minutes.quantize(Decimal("0.1"))
+
+            avg_smv = (
+                (sum(smv_values) / len(smv_values)).quantize(Decimal("0.01"))
+                if smv_values else None
+            )
+
+            # =========================
+            # EFFICIENCY
+            # =========================
+            efficiency = (
+                (worked_minutes / available_minutes * Decimal("100"))
+                .quantize(Decimal("0.1"))
+            ) if available_minutes > 0 else Decimal("0.0")
+
+            operator_capacity.append({
+                "operator": op,
+
+                # AVAILABLE
+                "available_start": available_start,
+                "available_end": available_end,
+                "available_min": available_minutes,
+
+                # WORKED
+                "worked_qty": total_qty if total_qty else None,
+                "worked_smv": avg_smv,
+                "worked_min": worked_minutes,
+
+                # KPI
+                "utilization": efficiency,
+            })
+
+        operator_capacity.sort(key=lambda x: x["utilization"], reverse=True)
+
+        context["operator_capacity_today"] = operator_capacity
+        context["selected_date"] = selected_date
+        return context
 
 
 
