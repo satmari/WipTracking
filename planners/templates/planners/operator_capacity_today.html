@@ -49,12 +49,12 @@
             {% for row in operator_capacity_today %}
               <tr
                 class="
-                  {% if row.utilization < 70 %}
-                    table-warning
-                  {% elif row.utilization > 110 %}
-                    table-danger
-                  {% endif %}
-                "
+                    {% if row.utilization < 70 %}
+                      table-danger
+                    {% elif row.utilization > 100 %}
+                      table-success
+                    {% endif %}
+                  "
               >
                 <td>
                   <strong>{{ row.operator.badge_num }}</strong><br>
