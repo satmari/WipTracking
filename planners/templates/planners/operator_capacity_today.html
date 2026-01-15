@@ -49,12 +49,14 @@
             {% for row in operator_capacity_today %}
               <tr
                 class="
-                    {% if row.utilization < 70 %}
-                      table-danger
-                    {% elif row.utilization > 100 %}
-                      table-success
-                    {% endif %}
-                  "
+                  {% if row.utilization < 50 %}
+                    table-danger
+                  {% elif row.utilization < 70 %}
+                    table-warning
+                  {% elif row.utilization > 100 %}
+                    table-success
+                  {% endif %}
+                "
               >
                 <td>
                   <strong>{{ row.operator.badge_num }}</strong><br>
@@ -108,6 +110,14 @@
           <li><strong>Efficiency</strong> = worked / available (%)</li>
         </ul>
       </div>
+
+      <div class="small mt-2">
+        <span class="badge bg-danger"> &lt; 50% </span>
+        <span class="badge bg-warning text-dark"> 50–70% </span>
+        <span class="badge bg-secondary"> 70–100% </span>
+        <span class="badge bg-success"> &gt; 100% </span>
+      </div>
+
 
     </div>
   </div>
