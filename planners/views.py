@@ -3649,9 +3649,9 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # -----------------------------------
-        # DATE HANDLING
-        # -----------------------------------
+        # -----------------------------
+        # DATE
+        # -----------------------------
         date_str = self.request.GET.get("date")
         if date_str:
             try:
@@ -3661,21 +3661,21 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
         else:
             selected_date = timezone.localdate()
 
-        operator_capacity = []
+        rows = []
 
-        # -----------------------------------
-        # OPERATORS WITH ACTIVITY
-        # -----------------------------------
-        operators_today = Operator.objects.filter(
+        # -----------------------------
+        # OPERATORS WITH LOGINS THAT DAY
+        # -----------------------------
+        operators = Operator.objects.filter(
             operators__login_team_date=selected_date,
-            operators__status__in=["ACTIVE", "COMPLETED"]
+            operators__status__in=["ACTIVE", "COMPLETED"],
         ).distinct()
 
-        for op in operators_today:
+        for op in operators:
 
-            # =========================
-            # AVAILABLE (LOGIN TIME)
-            # =========================
+            # -----------------------------
+            # LOGIN SESSIONS
+            # -----------------------------
             sessions = LoginOperator.objects.filter(
                 operator=op,
                 login_team_date=selected_date,
@@ -3684,84 +3684,89 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 logoff_team_time__isnull=False,
             ).order_by("login_team_time")
 
-            available_minutes = Decimal("0.0")
-            available_start = None
-            available_end = None
+            session_ranges = []
+            sessions_minutes = Decimal("0.0")
 
-            if sessions.exists():
-                available_start = sessions.first().login_team_time
-                available_end = sessions.last().logoff_team_time
+            for s in sessions:
+                start = s.login_team_time
+                end = s.logoff_team_time
 
-                for s in sessions:
-                    dt_start = datetime.combine(selected_date, s.login_team_time)
-                    dt_end = datetime.combine(selected_date, s.logoff_team_time)
-                    delta_min = Decimal(
-                        (dt_end - dt_start).total_seconds()
-                    ) / Decimal("60")
-                    available_minutes += delta_min
+                if end <= start:
+                    continue
 
-            break_count = OperatorBreak.objects.filter(
+                session_ranges.append(
+                    f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+                )
+
+                delta = (
+                    datetime.combine(selected_date, end)
+                    - datetime.combine(selected_date, start)
+                )
+
+                sessions_minutes += Decimal(delta.total_seconds()) / Decimal("60")
+
+            # -----------------------------
+            # BREAKS (1 break = 30 min)
+            # -----------------------------
+            has_break = OperatorBreak.objects.filter(
                 operator=op,
                 date=selected_date
-            ).count()
+            ).exists()
 
-            available_minutes -= Decimal(break_count) * Decimal("30")
-            available_minutes = max(available_minutes, Decimal("0.0"))
-            available_minutes = available_minutes.quantize(Decimal("0.1"))
+            break_minutes = Decimal("30.0") if has_break else Decimal("0.0")
 
-            # =========================
+            # -----------------------------
+            # AVAILABLE
+            # -----------------------------
+            available_minutes = max(
+                sessions_minutes - break_minutes,
+                Decimal("0.0")
+            )
+
+            # -----------------------------
             # WORKED (DECLARATIONS)
-            # =========================
+            # -----------------------------
+            worked_qty = Decimal("0.0")
+            worked_minutes = Decimal("0.0")
+            used_smv = None
+
             declarations = Declaration.objects.filter(
                 decl_date=selected_date,
                 operators=op,
                 smv__isnull=False,
             )
 
-            worked_minutes = Decimal("0.0")
-            total_qty = 0
-            smv_values = []
-
             for d in declarations:
-                worked_minutes += Decimal(d.qty) * d.smv
-                total_qty += d.qty
-                smv_values.append(d.smv)
+                qty = Decimal(d.qty)
+                smv = Decimal(d.smv)
+                worked_qty += qty
+                worked_minutes += qty * smv
+                used_smv = smv
 
-            worked_minutes = worked_minutes.quantize(Decimal("0.1"))
-
-            avg_smv = (
-                (sum(smv_values) / len(smv_values)).quantize(Decimal("0.01"))
-                if smv_values else None
+            # -----------------------------
+            # EFFICIENCY
+            # -----------------------------
+            efficiency = (
+                (worked_minutes / available_minutes) * Decimal("100")
+                if available_minutes > 0
+                else Decimal("0.0")
             )
 
-            # =========================
-            # EFFICIENCY
-            # =========================
-            efficiency = (
-                (worked_minutes / available_minutes * Decimal("100"))
-                .quantize(Decimal("0.1"))
-            ) if available_minutes > 0 else Decimal("0.0")
-
-            operator_capacity.append({
+            rows.append({
                 "operator": op,
-
-                # AVAILABLE
-                "available_start": available_start,
-                "available_end": available_end,
-                "available_min": available_minutes,
-
-                # WORKED
-                "worked_qty": total_qty if total_qty else None,
-                "worked_smv": avg_smv,
-                "worked_min": worked_minutes,
-
-                # KPI
-                "utilization": efficiency,
+                "session_ranges": session_ranges,
+                "break_minutes": break_minutes,
+                "available_min": round(available_minutes, 1),
+                "worked_qty": round(worked_qty, 1),
+                "worked_smv": round(used_smv, 2) if used_smv else None,
+                "worked_min": round(worked_minutes, 1),
+                "efficiency": round(efficiency, 1),
             })
 
-        operator_capacity.sort(key=lambda x: x["utilization"], reverse=True)
+        # sort by efficiency desc
+        rows.sort(key=lambda x: x["efficiency"], reverse=True)
 
-        context["operator_capacity_today"] = operator_capacity
+        context["rows"] = rows
         context["selected_date"] = selected_date
         return context
 
