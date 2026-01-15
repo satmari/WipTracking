@@ -1,0 +1,116 @@
+{% extends "core/base.html" %}
+
+{% block title %}Operator Capacity{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">
+      Operator Capacity – {{ selected_date|date:"d.m.Y" }}
+    </h1>
+
+    <a href="{% url 'planners:planner_dashboard' %}"
+       class="btn btn-sm btn-outline-secondary">
+      ← Back to dashboard
+    </a>
+  </div>
+
+  <!-- DATE FILTER -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">Select date</label>
+      <input type="date"
+             name="date"
+             value="{{ selected_date|date:'Y-m-d' }}"
+             class="form-control form-control-sm">
+    </div>
+
+    <div class="col-auto">
+      <button class="btn btn-sm btn-primary">Apply</button>
+    </div>
+  </form>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Operator</th>
+              <th class="text-end">Available (min)</th>
+              <th class="text-end">Worked (min)</th>
+              <th class="text-end">Efficiency</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for row in operator_capacity_today %}
+              <tr
+                class="
+                  {% if row.utilization < 70 %}
+                    table-warning
+                  {% elif row.utilization > 110 %}
+                    table-danger
+                  {% endif %}
+                "
+              >
+                <td>
+                  <strong>{{ row.operator.badge_num }}</strong><br>
+                  <span class="text-muted small">
+                    {{ row.operator.name }}
+                  </span>
+                </td>
+
+                <td class="text-end small">
+                  {% if row.available_start and row.available_end %}
+                    {{ row.available_start|time:"H:i" }}
+                    –
+                    {{ row.available_end|time:"H:i" }}
+                    =
+                    <strong>{{ row.available_min|floatformat:"1" }}</strong>
+                  {% else %}
+                    <strong>{{ row.available_min|floatformat:"1" }}</strong>
+                  {% endif %}
+                </td>
+
+                <td class="text-end small">
+                  {% if row.worked_qty and row.worked_smv %}
+                    {{ row.worked_qty }} pcs × {{ row.worked_smv|floatformat:"2" }}
+                    =
+                    <strong>{{ row.worked_min|floatformat:"1" }}</strong>
+                  {% else %}
+                    <strong>{{ row.worked_min|floatformat:"1" }}</strong>
+                  {% endif %}
+                </td>
+
+                <td class="text-end">
+                  <strong>{{ row.utilization|floatformat:"1" }}%</strong>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4"
+                    class="text-center text-muted py-3">
+                  No operator activity for this date.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-muted small mt-2">
+        <ul class="mb-0">
+          <li><strong>Available</strong> = team login time − team logout time − breaks</li>
+          <li><strong>Worked</strong> = declared quantity × SMV</li>
+          <li><strong>Efficiency</strong> = worked / available (%)</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
