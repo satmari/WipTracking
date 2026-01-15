@@ -39,25 +39,24 @@
           <thead class="table-light">
             <tr>
               <th>Operator</th>
-              <th class="text-end">Available (min)</th>
-              <th class="text-end">Worked (min)</th>
+              <th>Available (min)</th>
+              <th>Worked (min)</th>
               <th class="text-end">Efficiency</th>
             </tr>
           </thead>
 
           <tbody>
-            {% for row in operator_capacity_today %}
+            {% for row in rows %}
               <tr
-                class="
-                  {% if row.utilization < 50 %}
-                    table-danger
-                  {% elif row.utilization < 70 %}
-                    table-warning
-                  {% elif row.utilization > 100 %}
-                    table-success
-                  {% endif %}
-                "
+                {% if row.efficiency < 50 %}
+                  class="table-danger"
+                {% elif row.efficiency < 70 %}
+                  class="table-warning"
+                {% elif row.efficiency > 100 %}
+                  class="table-success"
+                {% endif %}
               >
+                <!-- OPERATOR -->
                 <td>
                   <strong>{{ row.operator.badge_num }}</strong><br>
                   <span class="text-muted small">
@@ -65,36 +64,35 @@
                   </span>
                 </td>
 
-                <td class="text-end small">
-                  {% if row.available_start and row.available_end %}
-                    {{ row.available_start|time:"H:i" }}
-                    –
-                    {{ row.available_end|time:"H:i" }}
-                    =
-                    <strong>{{ row.available_min|floatformat:"1" }}</strong>
-                  {% else %}
-                    <strong>{{ row.available_min|floatformat:"1" }}</strong>
+                <!-- AVAILABLE -->
+                <td class="small">
+                  {% for r in row.session_ranges %}
+                    {{ r }}{% if not forloop.last %} + {% endif %}
+                  {% endfor %}
+                  {% if row.break_minutes > 0 %}
+                    − {{ row.break_minutes }} min
                   {% endif %}
+                  = <strong>{{ row.available_min }}</strong>
                 </td>
 
-                <td class="text-end small">
+                <!-- WORKED -->
+                <td class="small">
                   {% if row.worked_qty and row.worked_smv %}
-                    {{ row.worked_qty }} pcs × {{ row.worked_smv|floatformat:"2" }}
-                    =
-                    <strong>{{ row.worked_min|floatformat:"1" }}</strong>
+                    {{ row.worked_qty }} pcs × {{ row.worked_smv }}
+                    = <strong>{{ row.worked_min }}</strong>
                   {% else %}
-                    <strong>{{ row.worked_min|floatformat:"1" }}</strong>
+                    0.0
                   {% endif %}
                 </td>
 
+                <!-- EFFICIENCY -->
                 <td class="text-end">
-                  <strong>{{ row.utilization|floatformat:"1" }}%</strong>
+                  <strong>{{ row.efficiency }}%</strong>
                 </td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="4"
-                    class="text-center text-muted py-3">
+                <td colspan="4" class="text-center text-muted py-3">
                   No operator activity for this date.
                 </td>
               </tr>
@@ -103,21 +101,21 @@
         </table>
       </div>
 
+      <!-- LEGEND -->
       <div class="text-muted small mt-2">
         <ul class="mb-0">
-          <li><strong>Available</strong> = team login time − team logout time − breaks</li>
+          <li><strong>Available</strong> = login sessions − breaks</li>
           <li><strong>Worked</strong> = declared quantity × SMV</li>
           <li><strong>Efficiency</strong> = worked / available (%)</li>
         </ul>
       </div>
 
       <div class="small mt-2">
-        <span class="badge bg-danger"> &lt; 50% </span>
-        <span class="badge bg-warning text-dark"> 50–70% </span>
-        <span class="badge bg-secondary"> 70–100% </span>
-        <span class="badge bg-success"> &gt; 100% </span>
+        <span class="badge bg-danger">&lt; 50%</span>
+        <span class="badge bg-warning text-dark">50–70%</span>
+        <span class="badge bg-secondary">70–100%</span>
+        <span class="badge bg-success">&gt; 100%</span>
       </div>
-
 
     </div>
   </div>
