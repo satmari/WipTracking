@@ -35,7 +35,7 @@
     <div class="card-body p-0">
 
       <table id="capacity-table"
-             class="table table-sm table-striped mb-0 auto-init-filters w-100">
+             class="table table-sm table-striped mb-0 w-100">
 
         <thead class="table-light">
           <tr>
@@ -80,7 +80,7 @@
                 <span class="text-muted small">{{ row.operator.name }}</span>
               </td>
 
-              <!-- TEAM -->
+              <!-- TEAM (team_user.username) -->
               <td class="small py-1">
                 {{ row.team|default:"—" }}
               </td>
@@ -107,7 +107,7 @@
               </td>
 
               <!-- EFFICIENCY -->
-              <td class="text-end py-1">
+              <td class="text-end py-1" data-order="{{ row.efficiency }}">
                 <strong>{{ row.efficiency }}%</strong>
               </td>
             </tr>
@@ -173,9 +173,11 @@
 <script>
 $(document).ready(function () {
     initTableWithColumnFilters('#capacity-table', {
-        order: [[4, 'desc']],
+        ordering: true,
+        order: [[4, 'desc']],     // ✅ DEFAULT SORT: Eff % DESC
+        orderCellsTop: true,      // ✅ zbog filter reda u thead
         pageLength: 25,
-        searching: false,   // ⬅️ nema duplog "Search:"
+        searching: false,         // nema global Search
         autoWidth: false
     });
 });

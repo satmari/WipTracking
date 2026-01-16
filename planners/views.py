@@ -3685,9 +3685,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             first_session = sessions.first()
 
             if first_session and first_session.team_user:
-                team_user = first_session.team_user
-                if team_user.subdepartment:
-                    team_name = team_user.subdepartment.subdepartment
+                team_name = first_session.team_user.username
 
             for s in sessions:
                 start = s.login_team_time
