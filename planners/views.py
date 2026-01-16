@@ -3663,9 +3663,6 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
         rows = []
 
-        # -----------------------------
-        # OPERATORS WITH LOGINS THAT DAY
-        # -----------------------------
         operators = Operator.objects.filter(
             operators__login_team_date=selected_date,
             operators__status__in=["ACTIVE", "COMPLETED"],
@@ -3673,9 +3670,6 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
         for op in operators:
 
-            # -----------------------------
-            # LOGIN SESSIONS
-            # -----------------------------
             sessions = LoginOperator.objects.filter(
                 operator=op,
                 login_team_date=selected_date,
@@ -3687,10 +3681,17 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             session_ranges = []
             sessions_minutes = Decimal("0.0")
 
+            team_name = None
+            first_session = sessions.first()
+
+            if first_session and first_session.team_user:
+                team_user = first_session.team_user
+                if team_user.subdepartment:
+                    team_name = team_user.subdepartment.subdepartment
+
             for s in sessions:
                 start = s.login_team_time
                 end = s.logoff_team_time
-
                 if end <= start:
                     continue
 
@@ -3702,12 +3703,8 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                     datetime.combine(selected_date, end)
                     - datetime.combine(selected_date, start)
                 )
-
                 sessions_minutes += Decimal(delta.total_seconds()) / Decimal("60")
 
-            # -----------------------------
-            # BREAKS (1 break = 30 min)
-            # -----------------------------
             has_break = OperatorBreak.objects.filter(
                 operator=op,
                 date=selected_date
@@ -3715,17 +3712,11 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
             break_minutes = Decimal("30.0") if has_break else Decimal("0.0")
 
-            # -----------------------------
-            # AVAILABLE
-            # -----------------------------
             available_minutes = max(
                 sessions_minutes - break_minutes,
                 Decimal("0.0")
             )
 
-            # -----------------------------
-            # WORKED (DECLARATIONS)
-            # -----------------------------
             worked_qty = Decimal("0.0")
             worked_minutes = Decimal("0.0")
             used_smv = None
@@ -3743,9 +3734,6 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 worked_minutes += qty * smv
                 used_smv = smv
 
-            # -----------------------------
-            # EFFICIENCY
-            # -----------------------------
             efficiency = (
                 (worked_minutes / available_minutes) * Decimal("100")
                 if available_minutes > 0
@@ -3754,6 +3742,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
             rows.append({
                 "operator": op,
+                "team": team_name,
                 "session_ranges": session_ranges,
                 "break_minutes": break_minutes,
                 "available_min": round(available_minutes, 1),
@@ -3763,7 +3752,6 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 "efficiency": round(efficiency, 1),
             })
 
-        # sort by efficiency desc
         rows.sort(key=lambda x: x["efficiency"], reverse=True)
 
         context["rows"] = rows
