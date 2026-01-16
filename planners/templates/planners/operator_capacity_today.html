@@ -172,14 +172,25 @@
 
 <script>
 $(document).ready(function () {
-    initTableWithColumnFilters('#capacity-table', {
-        ordering: true,
-        order: [[4, 'desc']],     // ✅ DEFAULT SORT: Eff % DESC
-        orderCellsTop: true,      // ✅ zbog filter reda u thead
+
+    const table = $('#capacity-table').DataTable({
+        order: [[4, 'desc']],     // Eff % DESC
         pageLength: 25,
-        searching: false,         // nema global Search
-        autoWidth: false
+        ordering: true,
+        searching: true,          // ⬅️ mora biti true da bi column search radio
+        autoWidth: false,
+        orderCellsTop: true
     });
+
+    // COLUMN FILTERS
+    $('#capacity-table thead').on('keyup change', '.column-filter', function () {
+        const colIndex = $(this).data('column');
+        table
+            .column(colIndex)
+            .search(this.value)
+            .draw();
+    });
+
 });
 </script>
 {% endblock %}
