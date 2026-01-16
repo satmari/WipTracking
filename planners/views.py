@@ -2754,31 +2754,59 @@ class _PStep2ProForm(forms.Form):
 
 
 class _PStep3RoutingForm(forms.Form):
-    routing = forms.ModelChoiceField(queryset=Routing.objects.none(), label="Select Routing")
+    routing = forms.ModelChoiceField(
+        queryset=Routing.objects.none(),
+        label="Select Routing",
+        widget=forms.RadioSelect
+    )
 
     def __init__(self, *args, **kwargs):
         pro = kwargs.pop("pro", None)
         subdepartment = kwargs.pop("subdepartment", None)
         super().__init__(*args, **kwargs)
-        if pro:
-            qs = Routing.objects.filter(status=True, ready=True, sku__iexact=pro.sku)
-            if subdepartment:
-                qs = qs.filter(subdepartment=subdepartment)
-            self.fields["routing"].queryset = qs.order_by("version")
-        else:
+
+        if not pro:
             self.fields["routing"].queryset = Routing.objects.none()
-        self.fields["routing"].widget.attrs.update({"class": "form-select", "data-placeholder": "— Select Routing —"})
+            return
+
+        qs = Routing.objects.filter(
+            status=True,
+            ready=True,
+            sku__iexact=pro.sku,
+        )
+
+        if subdepartment:
+            qs = qs.filter(subdepartment=subdepartment)
+
+        qs = qs.order_by("version")
+        self.fields["routing"].queryset = qs
+
+        # auto-select ako ima samo jedan routing
+        if qs.count() == 1:
+            self.initial["routing"] = qs.first().id
 
 
 class _PStep4RoutingOperationForm(forms.Form):
-    routing_operation = forms.ModelChoiceField(queryset=RoutingOperation.objects.none(), label="Select Operation")
+    routing_operation = forms.ModelChoiceField(
+        queryset=RoutingOperation.objects.none(),
+        label="Select Operation",
+        widget=forms.RadioSelect
+    )
 
     def __init__(self, *args, **kwargs):
         routing = kwargs.pop("routing", None)
         super().__init__(*args, **kwargs)
-        if routing:
-            self.fields["routing_operation"].queryset = routing.routing_operations.all().order_by("id")
-        self.fields["routing_operation"].widget.attrs.update({"class": "form-select", "data-placeholder": "— Select Operation —"})
+
+        if not routing:
+            self.fields["routing_operation"].queryset = RoutingOperation.objects.none()
+            return
+
+        qs = routing.routing_operations.all().order_by("id")
+        self.fields["routing_operation"].queryset = qs
+
+        # auto-select ako ima samo jedna operacija
+        if qs.count() == 1:
+            self.initial["routing_operation"] = qs.first().id
 
 
 class _PStep5QtyForm(forms.Form):
