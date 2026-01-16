@@ -340,45 +340,59 @@ class _Step1ProForm(forms.Form):
 
 
 class _Step2RoutingForm(forms.Form):
-    routing = forms.ModelChoiceField(queryset=Routing.objects.none(), label="Select Routing")
+    routing = forms.ModelChoiceField(
+        queryset=Routing.objects.none(),
+        label="Select Routing",
+        widget=forms.RadioSelect
+    )
 
     def __init__(self, *args, **kwargs):
-        # accept 'pro' and 'subdepartment' to allow server-side filtering
         pro = kwargs.pop("pro", None)
         subdepartment = kwargs.pop("subdepartment", None)
         super().__init__(*args, **kwargs)
 
-        if pro:
-            qs = Routing.objects.filter(
-                status=True,
-                ready=True,
-                sku__iexact=pro.sku,
-            )
-            # enforce subdepartment filter if provided (team user's subdepartment)
-            if subdepartment:
-                qs = qs.filter(subdepartment=subdepartment)
-            self.fields["routing"].queryset = qs.order_by("sku", "version")
-        else:
+        if not pro:
             self.fields["routing"].queryset = Routing.objects.none()
+            return
 
-        self.fields["routing"].widget.attrs.update({
-            "class": "form-select",
-            "data-placeholder": "— Select Routing —",
-        })
+        qs = Routing.objects.filter(
+            status=True,
+            ready=True,
+            sku__iexact=pro.sku,
+        )
+
+        if subdepartment:
+            qs = qs.filter(subdepartment=subdepartment)
+
+        qs = qs.order_by("sku", "version")
+        self.fields["routing"].queryset = qs
+
+        # ✅ AUTO SELECT ako postoji samo jedan routing
+        if qs.count() == 1:
+            self.initial["routing"] = qs.first().id
 
 
 class _Step3RoutingOperationForm(forms.Form):
-    routing_operation = forms.ModelChoiceField(queryset=RoutingOperation.objects.none(), label="Select Routing Operation")
+    routing_operation = forms.ModelChoiceField(
+        queryset=RoutingOperation.objects.none(),
+        label="Select Routing Operation",
+        widget=forms.RadioSelect
+    )
 
     def __init__(self, *args, **kwargs):
         routing = kwargs.pop("routing", None)
         super().__init__(*args, **kwargs)
-        if routing:
-            self.fields["routing_operation"].queryset = routing.routing_operations.all()
-        self.fields["routing_operation"].widget.attrs.update({
-            "class": "form-select",
-            "data-placeholder": "— Select Operation —",
-        })
+
+        if not routing:
+            self.fields["routing_operation"].queryset = RoutingOperation.objects.none()
+            return
+
+        qs = routing.routing_operations.all().order_by("operation__name")
+        self.fields["routing_operation"].queryset = qs
+
+        # ✅ AUTO SELECT ako postoji samo jedna operacija
+        if qs.count() == 1:
+            self.initial["routing_operation"] = qs.first().id
 
 
 class _Step4QtyForm(forms.Form):

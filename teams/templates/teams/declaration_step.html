@@ -23,8 +23,10 @@
 
   .wizard-progress .progress-bar { transition: width .35s ease; }
 
+  /* ===== INPUTS ===== */
   .declaration-card form select,
-  .declaration-card form input {
+  .declaration-card form input[type="text"],
+  .declaration-card form input[type="number"] {
     width: 100%;
     padding: .55rem .75rem;
     border: 1px solid #d1d5db;
@@ -33,6 +35,41 @@
     font-size: .95rem;
   }
 
+  /* ===== RADIO LIST ===== */
+  .radio-list {
+    padding: .4rem;
+    background: #fbfcfd;
+    border-radius: .5rem;
+  }
+
+  .radio-list .form-check {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .45rem .6rem;
+    margin-bottom: .4rem;
+    border-radius: .4rem;
+    cursor: pointer;
+  }
+
+  .radio-list .form-check:hover {
+    background: #eef2f7;
+  }
+
+  .radio-list input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .radio-list label {
+    margin: 0;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ===== OPERATORS ===== */
   .ops-list {
     padding: .35rem;
     border-radius: .45rem;
@@ -48,17 +85,15 @@
     border-radius: .4rem;
   }
 
-  .ops-list .form-check input[type="checkbox"] {
+  .ops-list input[type="checkbox"] {
     width: 24px;
     height: 24px;
     margin: 0;
-    transform: scale(1.15);
   }
 
-  .ops-list .form-check label {
+  .ops-list label {
     margin: 0;
     font-weight: 600;
-    font-size: 1rem;
   }
 
   .ops-toolbar {
@@ -82,8 +117,9 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Declare output</h1>
+
     {% if step|add:"-1" >= 1 %}
-      <a class="btn btn-outline-secondary" href="?step={{ step|add:"-1" }}">← Back</a>
+      <a class="btn btn-outline-secondary" href="?step={{ step|add:'-1' }}">← Back</a>
     {% else %}
       <a class="btn btn-outline-secondary" href="{% url 'teams:declare_output_cancel' %}">Cancel</a>
     {% endif %}
@@ -122,16 +158,14 @@
                   {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                 </label>
 
-                {% if field.name in checkbox_fields %}
-                  {% if field.name == 'operators' %}
-                    <div class="ops-toolbar">
-                      <button type="button"
-                              class="btn btn-sm btn-outline-primary js-ops-toggle"
-                              data-all="false">
-                        Check all
-                      </button>
-                    </div>
-                  {% endif %}
+                {# ===== OPERATORS (checkbox) ===== #}
+                {% if field.name == "operators" %}
+                  <div class="ops-toolbar">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary js-ops-toggle">
+                      Check all
+                    </button>
+                  </div>
 
                   <div class="ops-list">
                     {% for checkbox in field %}
@@ -143,6 +177,21 @@
                       </div>
                     {% endfor %}
                   </div>
+
+                {# ===== RADIO (routing / operation) ===== #}
+                {% elif field.field.widget.input_type == "radio" %}
+                  <div class="radio-list">
+                    {% for radio in field %}
+                      <div class="form-check">
+                        {{ radio.tag }}
+                        <label for="{{ radio.id_for_label }}">
+                          {{ radio.choice_label }}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  </div>
+
+                {# ===== DEFAULT (select / input) ===== #}
                 {% else %}
                   {{ field }}
                 {% endif %}
@@ -157,6 +206,7 @@
 
             <div class="d-flex justify-content-between">
               <a class="btn btn-outline-secondary" href="?step={{ step|add:'-1' }}">← Back</a>
+
               {% if step < 5 %}
                 <button type="submit" class="btn btn-primary">Next →</button>
               {% else %}
@@ -197,21 +247,14 @@
 (function($){
   $(document).ready(function(){
 
-    /* ===== SELECT2 ===== */
-    function initSelect2(selector, placeholder) {
-      var $el = $(selector);
-      if ($el.length && !$el.hasClass('select2-hidden-accessible')) {
-        $el.select2({
-          width: '100%',
-          placeholder: placeholder || 'Select…',
-          allowClear: true
-        });
-      }
+    /* ===== SELECT2 samo za PRO ===== */
+    if ($('#id_pro').length) {
+      $('#id_pro').select2({
+        width: '100%',
+        placeholder: 'Search PRO',
+        allowClear: true
+      });
     }
-
-    initSelect2('#id_pro', 'Search PRO');
-    initSelect2('#id_routing', 'Search routing');
-    initSelect2('#id_operation', 'Search operation');
 
     /* ===== CHECK / UNCHECK ALL OPERATORS ===== */
     $(document).on('click', '.js-ops-toggle', function(e){
@@ -231,23 +274,6 @@
         $btn.text('Uncheck all')
             .removeClass('btn-outline-primary')
             .addClass('btn-outline-danger');
-      }
-    });
-
-    $(document).on('change', "input[type='checkbox'][name='operators']", function(){
-      var $inputs = $("input[type='checkbox'][name='operators']");
-      var $btn = $('.js-ops-toggle');
-
-      if (!$btn.length) return;
-
-      if ($inputs.length === $inputs.filter(':checked').length) {
-        $btn.text('Uncheck all')
-            .removeClass('btn-outline-primary')
-            .addClass('btn-outline-danger');
-      } else {
-        $btn.text('Check all')
-            .removeClass('btn-outline-danger')
-            .addClass('btn-outline-primary');
       }
     });
 

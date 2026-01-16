@@ -22,9 +22,7 @@ Declare output — Planner wizard (Step {{ step }} of 7)
     box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
   }
 
-  .wizard-progress .progress-bar {
-    transition: width .35s ease;
-  }
+  .wizard-progress .progress-bar { transition: width .35s ease; }
 
   .declaration-card form select,
   .declaration-card form input {
@@ -36,6 +34,40 @@ Declare output — Planner wizard (Step {{ step }} of 7)
     font-size: .95rem;
   }
 
+  /* ===== RADIO LIST ===== */
+  .radio-list {
+    padding: .4rem;
+    background: #fbfcfd;
+    border-radius: .5rem;
+  }
+
+  .radio-list .form-check {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .45rem .6rem;
+    margin-bottom: .4rem;
+    border-radius: .4rem;
+    cursor: pointer;
+  }
+
+  .radio-list .form-check:hover {
+    background: #eef2f7;
+  }
+
+  .radio-list input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+
+  .radio-list label {
+    margin: 0;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ===== OPERATORS ===== */
   .ops-list {
     padding: .35rem;
     border-radius: .45rem;
@@ -51,16 +83,15 @@ Declare output — Planner wizard (Step {{ step }} of 7)
     border-radius: .4rem;
   }
 
-  .ops-list .form-check input[type="checkbox"] {
+  .ops-list input[type="checkbox"] {
     width: 24px;
     height: 24px;
     margin: 0;
   }
 
-  .ops-list .form-check label {
+  .ops-list label {
     margin: 0;
     font-weight: 600;
-    font-size: 1rem;
   }
 
   .ops-toolbar {
@@ -90,7 +121,6 @@ Declare output — Planner wizard (Step {{ step }} of 7)
     </a>
   </div>
 
-  <!-- STEP TITLE -->
   <div class="mb-4 text-center">
     <div class="wizard-step-title mb-2">
       {% if step == 1 %}Select Team user
@@ -103,18 +133,14 @@ Declare output — Planner wizard (Step {{ step }} of 7)
       {% endif %}
     </div>
 
-    <div class="text-muted small mb-2">
-      Step {{ step }} of 7
-    </div>
+    <div class="text-muted small mb-2">Step {{ step }} of 7</div>
 
     <div class="progress wizard-progress mx-auto" style="max-width:600px;">
-      <div class="progress-bar bg-primary"
-           style="width: {{ percent }}%;"></div>
+      <div class="progress-bar bg-primary" style="width: {{ percent }}%;"></div>
     </div>
   </div>
 
   <div class="row">
-    <!-- FORM -->
     <div class="col-lg-8">
       <div class="card shadow-sm declaration-card mb-3">
         <div class="card-body">
@@ -125,12 +151,9 @@ Declare output — Planner wizard (Step {{ step }} of 7)
 
             {% for field in form %}
               <div class="mb-3">
-
                 <label class="declaration-form-label">
                   {{ field.label }}
-                  {% if field.field.required %}
-                    <span class="text-danger">*</span>
-                  {% endif %}
+                  {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                 </label>
 
                 {% if field.name == "operators" %}
@@ -151,6 +174,19 @@ Declare output — Planner wizard (Step {{ step }} of 7)
                       </div>
                     {% endfor %}
                   </div>
+
+                {% elif field.field.widget.input_type == "radio" %}
+                  <div class="radio-list">
+                    {% for radio in field %}
+                      <div class="form-check">
+                        {{ radio.tag }}
+                        <label for="{{ radio.id_for_label }}">
+                          {{ radio.choice_label }}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  </div>
+
                 {% else %}
                   {{ field }}
                 {% endif %}
@@ -166,9 +202,7 @@ Declare output — Planner wizard (Step {{ step }} of 7)
             <div class="d-flex justify-content-between align-items-center">
               {% if step > 1 %}
                 <a class="btn btn-outline-secondary"
-                   href="?step={{ step|add:'-1' }}">
-                  ← Back
-                </a>
+                   href="?step={{ step|add:'-1' }}">← Back</a>
               {% else %}
                 <span></span>
               {% endif %}
@@ -184,7 +218,6 @@ Declare output — Planner wizard (Step {{ step }} of 7)
       </div>
     </div>
 
-    <!-- PREVIEW -->
     <div class="col-lg-4">
       <div class="card shadow-sm">
         <div class="card-body">
@@ -228,41 +261,15 @@ Declare output — Planner wizard (Step {{ step }} of 7)
           .addClass('btn-outline-danger');
     }
   });
-})(jQuery);
-</script>
 
-<script>
-(function($){
-  $(document).ready(function(){
-
-    function initSelect2(selector, placeholder) {
-      var $el = $(selector);
-      if ($el.length && !$el.hasClass('select2-hidden-accessible')) {
-        $el.select2({
-          width: '100%',
-          placeholder: placeholder || 'Search…',
-          allowClear: true
-        });
-      }
-    }
-
-    initSelect2('#id_pro', 'Search PRO');
-    initSelect2('#id_routing', 'Search routing');
-    initSelect2('#id_routing_operation', 'Search operation');
-
-    $(document).on('change', '#id_pro', function(){
-      setTimeout(function(){
-        initSelect2('#id_routing', 'Search routing');
-      }, 50);
+  // Select2 samo za PRO
+  if ($('#id_pro').length) {
+    $('#id_pro').select2({
+      width: '100%',
+      placeholder: 'Search PRO',
+      allowClear: true
     });
-
-    $(document).on('change', '#id_routing', function(){
-      setTimeout(function(){
-        initSelect2('#id_routing_operation', 'Search operation');
-      }, 50);
-    });
-
-  });
+  }
 })(jQuery);
 </script>
 {% endblock %}
