@@ -1,9 +1,10 @@
 {% extends "core/base.html" %}
+{% load static %}
 
 {% block title %}Operator Capacity{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">
@@ -12,113 +13,171 @@
 
     <a href="{% url 'planners:planner_dashboard' %}"
        class="btn btn-sm btn-outline-secondary">
-      ← Back to dashboard
+      ← Back
     </a>
   </div>
 
   <!-- DATE FILTER -->
   <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-auto">
-      <label class="form-label small mb-0">Select date</label>
+      <label class="form-label small mb-0">Date</label>
       <input type="date"
              name="date"
              value="{{ selected_date|date:'Y-m-d' }}"
              class="form-control form-control-sm">
     </div>
-
     <div class="col-auto">
       <button class="btn btn-sm btn-primary">Apply</button>
     </div>
   </form>
 
   <div class="card shadow-sm">
-    <div class="card-body">
+    <div class="card-body p-0">
 
-      <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Operator</th>
-              <th>Available (min)</th>
-              <th>Worked (min)</th>
-              <th class="text-end">Efficiency</th>
-            </tr>
-          </thead>
+      <table id="capacity-table"
+             class="table table-sm table-striped mb-0 auto-init-filters w-100">
 
-          <tbody>
-            {% for row in rows %}
-              <tr
-                {% if row.efficiency < 50 %}
-                  class="table-danger"
-                {% elif row.efficiency < 70 %}
-                  class="table-warning"
-                {% elif row.efficiency > 100 %}
-                  class="table-success"
+        <thead class="table-light">
+          <tr>
+            <th>Operator</th>
+            <th>Team</th>
+            <th>Available (min)</th>
+            <th>Worked (min)</th>
+            <th class="text-end">Eff %</th>
+          </tr>
+
+          <!-- COLUMN FILTERS -->
+          <tr>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="0" placeholder="Search…">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="1" placeholder="Search…">
+            </th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+        {% if rows %}
+          {% for row in rows %}
+            <tr
+              {% if row.efficiency < 50 %}
+                class="table-danger"
+              {% elif row.efficiency < 70 %}
+                class="table-warning"
+              {% elif row.efficiency > 100 %}
+                class="table-success"
+              {% endif %}
+            >
+              <!-- OPERATOR -->
+              <td class="py-1">
+                <strong>{{ row.operator.badge_num }}</strong><br>
+                <span class="text-muted small">{{ row.operator.name }}</span>
+              </td>
+
+              <!-- TEAM -->
+              <td class="small py-1">
+                {{ row.team|default:"—" }}
+              </td>
+
+              <!-- AVAILABLE -->
+              <td class="small py-1">
+                {% for r in row.session_ranges %}
+                  {{ r }}{% if not forloop.last %} + {% endif %}
+                {% endfor %}
+                {% if row.break_minutes %}
+                  − {{ row.break_minutes }}m
                 {% endif %}
-              >
-                <!-- OPERATOR -->
-                <td>
-                  <strong>{{ row.operator.badge_num }}</strong><br>
-                  <span class="text-muted small">
-                    {{ row.operator.name }}
-                  </span>
-                </td>
+                = <strong>{{ row.available_min }}</strong>
+              </td>
 
-                <!-- AVAILABLE -->
-                <td class="small">
-                  {% for r in row.session_ranges %}
-                    {{ r }}{% if not forloop.last %} + {% endif %}
-                  {% endfor %}
-                  {% if row.break_minutes > 0 %}
-                    − {{ row.break_minutes }} min
-                  {% endif %}
-                  = <strong>{{ row.available_min }}</strong>
-                </td>
+              <!-- WORKED -->
+              <td class="small py-1">
+                {% if row.worked_qty %}
+                  {{ row.worked_qty }} × {{ row.worked_smv }}
+                  = <strong>{{ row.worked_min }}</strong>
+                {% else %}
+                  0
+                {% endif %}
+              </td>
 
-                <!-- WORKED -->
-                <td class="small">
-                  {% if row.worked_qty and row.worked_smv %}
-                    {{ row.worked_qty }} pcs × {{ row.worked_smv }}
-                    = <strong>{{ row.worked_min }}</strong>
-                  {% else %}
-                    0.0
-                  {% endif %}
-                </td>
+              <!-- EFFICIENCY -->
+              <td class="text-end py-1">
+                <strong>{{ row.efficiency }}%</strong>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No operator activity for selected date.
+            </td>
+          </tr>
+        {% endif %}
+        </tbody>
 
-                <!-- EFFICIENCY -->
-                <td class="text-end">
-                  <strong>{{ row.efficiency }}%</strong>
-                </td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="4" class="text-center text-muted py-3">
-                  No operator activity for this date.
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- LEGEND -->
-      <div class="text-muted small mt-2">
-        <ul class="mb-0">
-          <li><strong>Available</strong> = login sessions − breaks</li>
-          <li><strong>Worked</strong> = declared quantity × SMV</li>
-          <li><strong>Efficiency</strong> = worked / available (%)</li>
-        </ul>
-      </div>
-
-      <div class="small mt-2">
-        <span class="badge bg-danger">&lt; 50%</span>
-        <span class="badge bg-warning text-dark">50–70%</span>
-        <span class="badge bg-secondary">70–100%</span>
-        <span class="badge bg-success">&gt; 100%</span>
-      </div>
+      </table>
 
     </div>
   </div>
 
+  <!-- LEGEND -->
+  <div class="small mt-2">
+    <span class="badge bg-danger">&lt; 50%</span>
+    <span class="badge bg-warning text-dark">50–70%</span>
+    <span class="badge bg-secondary">70–100%</span>
+    <span class="badge bg-success">&gt; 100%</span>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<style>
+  /* column filters */
+  .column-filter {
+    min-width: 80px;
+    font-size: .8rem;
+    padding: 2px 4px;
+  }
+
+  /* stable layout */
+  #capacity-table th,
+  #capacity-table td {
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  #capacity-table thead input {
+    width: 100%;
+  }
+
+  table.dataTable {
+    width: 100% !important;
+  }
+
+  /* compact text */
+  #capacity-table td.small {
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+</style>
+
+<script>
+$(document).ready(function () {
+    initTableWithColumnFilters('#capacity-table', {
+        order: [[4, 'desc']],
+        pageLength: 25,
+        searching: false,   // ⬅️ nema duplog "Search:"
+        autoWidth: false
+    });
+});
+</script>
 {% endblock %}
