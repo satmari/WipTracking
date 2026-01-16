@@ -3642,7 +3642,6 @@ class OperatorBreakWizardView(PlannerAccessMixin, View):
 # ---------- OPERATOR CAPACITY ----------
 
 
-
 class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
     template_name = "planners/operator_capacity_today.html"
 
