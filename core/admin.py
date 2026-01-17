@@ -81,6 +81,7 @@ class TeamUserAdmin(UserAdmin):
         "username",
         "subdepartment",
         "team_location",
+        "login_grace_period",
         "groups_list",
         "is_staff",
         "is_active",
@@ -91,6 +92,7 @@ class TeamUserAdmin(UserAdmin):
     list_filter = (
         "subdepartment",
         "team_location",
+        "login_grace_period",
         "is_staff",
         "is_active",
         "groups",
@@ -114,6 +116,7 @@ class TeamUserAdmin(UserAdmin):
                     "last_name",
                     "subdepartment",
                     "team_location",
+                    "login_grace_period",
                 )
             },
         ),
@@ -142,6 +145,7 @@ class TeamUserAdmin(UserAdmin):
                     "username",
                     "subdepartment",
                     "team_location",
+                    "login_grace_period",
                     "password1",
                     "password2",
                     "is_active",
@@ -153,6 +157,8 @@ class TeamUserAdmin(UserAdmin):
             },
         ),
     )
+
+
 
     readonly_fields = ("created_at", "updated_at")
 
