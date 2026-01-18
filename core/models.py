@@ -62,6 +62,12 @@ class TeamUser(AbstractUser):
         verbose_name="Team location",
     )
 
+    login_grace_period = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Login grace period (minutes)",
+        help_text="Allowed login delay in minutes"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -433,6 +439,14 @@ class LoginOperator(models.Model):
         max_length=10,
         choices=STATUS_CHOICES,
         default='ACTIVE',
+    )
+
+    break_time = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Break time (minutes)',
+        help_text='Break time in minutes'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

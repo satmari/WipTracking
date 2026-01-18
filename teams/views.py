@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
 from django.forms.widgets import CheckboxSelectMultiple
+from datetime import datetime, timedelta
 
 from core.models import *
 
@@ -74,6 +75,7 @@ class OperatorLoginForm(forms.Form):
 
 
 # ---------- LOGIN PAGE ----------
+
 
 class OperatorLoginView(TeamAccessMixin, TemplateView):
     template_name = "teams/operator_login.html"
@@ -160,50 +162,48 @@ class OperatorLoginView(TeamAccessMixin, TemplateView):
         shift_start = calendar_entry.shift_start
         shift_end = calendar_entry.shift_end
 
-        # ne sme posle kraja smene (koristimo lokalno vreme)
+        # ne sme posle kraja smene
         if current_time > shift_end:
             messages.error(request, "You cannot log in operators after the end of the shift.")
             return redirect("teams:operator_login")
 
-        # --- PROVERA POSTOJEĆIH AKTIVNIH SESIJA ZA OVOG OPERATERA DANAS ---
+        # --- PROVERA POSTOJEĆIH AKTIVNIH SESIJA ---
 
         active_today_qs = LoginOperator.objects.filter(
-            operator=operator, status="ACTIVE", login_team_date=current_date
+            operator=operator,
+            status="ACTIVE",
+            login_team_date=current_date,
         )
 
-        # 1) već prijavljen u ISTI tim danas -> poruka, ne dozvoliti login
+        # 1) već prijavljen u istom timu
         same_team_session = active_today_qs.filter(team_user=request.user).first()
         if same_team_session:
             messages.error(request, "This operator is already logged in this team today.")
             return redirect("teams:operator_login")
 
-        # 2) prijavljen u DRUGI tim danas -> automatski ga odjavljujemo iz tog tima
+        # 2) prijavljen u drugom timu → auto logout
         other_team_sessions = active_today_qs.exclude(team_user=request.user)
 
         for s in other_team_sessions:
-            other_calendar = Calendar.objects.filter(team_user=s.team_user, date=current_date).first()
+            other_calendar = Calendar.objects.filter(
+                team_user=s.team_user,
+                date=current_date,
+            ).first()
 
-            # stvarno vreme logoff-a uvek čuvamo kao UTC
-            s.logoff_actual = now
+            s.logoff_actual = now  # UTC
 
             if other_calendar:
                 other_shift_start = other_calendar.shift_start
                 other_shift_end = other_calendar.shift_end
 
-                # login vreme u lokalnoj zoni
                 login_local_time = timezone.localtime(s.login_actual).time()
 
-                # IGNORE slučaj:
-                # - login pre početka smene
-                # - auto-logout pre početka smene
+                # IGNORE: login i logout pre smene
                 if login_local_time < other_shift_start and current_time < other_shift_start:
                     s.logoff_team_date = other_calendar.date
                     s.logoff_team_time = other_shift_start
                     s.status = "IGNORE"
                 else:
-                    # standardna logika:
-                    # - u toku smene -> actual
-                    # - posle smene -> shift_end
                     s.logoff_team_date = other_calendar.date
                     if current_time <= other_shift_end:
                         s.logoff_team_time = current_time
@@ -211,7 +211,6 @@ class OperatorLoginView(TeamAccessMixin, TemplateView):
                         s.logoff_team_time = other_shift_end
                     s.status = "COMPLETED"
             else:
-                # fallback ako nema calendar reda za onaj tim
                 s.logoff_team_date = current_date
                 s.logoff_team_time = current_time
                 s.status = "COMPLETED"
@@ -224,13 +223,21 @@ class OperatorLoginView(TeamAccessMixin, TemplateView):
                 "Operator was logged out from another team and will be logged in to this team.",
             )
 
-        # --- LOGIN TEAM TIME LOGIKA (lokalno) ---
+        # ------------------------------------------------------------------
+        # LOGIN TEAM TIME LOGIKA (sa login_grace_period)
+        # ------------------------------------------------------------------
 
-        # - pre smene -> shift_start
-        # - u toku smene -> actual time
-        if current_time < shift_start:
+        grace_minutes = request.user.login_grace_period or 0
+
+        shift_start_dt = datetime.combine(current_date, shift_start)
+        grace_limit_dt = shift_start_dt + timedelta(minutes=grace_minutes)
+        current_dt = datetime.combine(current_date, current_time)
+
+        if current_dt <= grace_limit_dt:
+            # pre smene ili unutar grace perioda
             team_time = shift_start
         else:
+            # posle grace perioda
             team_time = current_time
 
         team_date = calendar_entry.date
@@ -238,9 +245,9 @@ class OperatorLoginView(TeamAccessMixin, TemplateView):
         LoginOperator.objects.create(
             operator=operator,
             team_user=request.user,
-            login_actual=now,  # UTC
+            login_actual=now,          # UTC
             login_team_date=team_date,
-            login_team_time=team_time,
+            login_team_time=team_time, # lokalno, sa grace logikom
         )
 
         messages.success(request, f"Operator {operator} logged in.")

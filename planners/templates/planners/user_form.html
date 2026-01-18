@@ -35,6 +35,11 @@
         </div>
 
         <div class="col-md-2">
+          <label class="form-label">Login grace (min)</label>
+          {{ form.login_grace_period|add_class:"form-control" }}
+        </div>
+
+        <div class="col-md-2">
           <label class="form-label">Active</label><br>
           {{ form.is_active }}
         </div>

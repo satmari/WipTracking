@@ -330,7 +330,7 @@ class TeamUserListView(PlannerAccessMixin, ListView):
 
 class TeamUserCreateView(PlannerAccessMixin, CreateView):
     model = TeamUser
-    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "is_active"]
+    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "login_grace_period", "is_active"]
     template_name = "planners/user_form.html"
     success_url = reverse_lazy("planners:user_list")
 
@@ -356,7 +356,7 @@ class TeamUserCreateView(PlannerAccessMixin, CreateView):
 
 class TeamUserUpdateView(PlannerAccessMixin, UpdateView):
     model = TeamUser
-    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "is_active"]
+    fields = ["username", "first_name", "last_name", "subdepartment", "team_location", "login_grace_period", "is_active"]
     template_name = "planners/user_form.html"
     success_url = reverse_lazy("planners:user_list")
 
@@ -1300,7 +1300,6 @@ class RoutingForm(forms.ModelForm):
         return value
 
 
-
 class RoutingCreateView(PlannerAccessMixin, CreateView):
     model = Routing
     form_class = RoutingForm
@@ -1973,6 +1972,18 @@ class LoginOperatorListView(PlannerAccessMixin, ListView):
             .order_by("-login_actual")
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # count logins that still use OLD break logic (NULL)
+        context["break_null_count"] = (
+            LoginOperator.objects
+            .filter(break_time__isnull=True)
+            .count()
+        )
+
+        return context
+
 
 class LoginOperatorCreateView(PlannerAccessMixin, CreateView):
     model = LoginOperator
@@ -2111,45 +2122,49 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
         hidden inputs are rendered and browser posts them back.
         """
         form = super().get_form(form_class)
-
         obj = self.get_object()
 
         for fname in ("login_actual", "logoff_actual"):
             if fname in form.fields:
                 form.fields[fname].widget = HiddenInput()
                 form.fields[fname].required = False
-                # prefer instance value for initial so hidden input has value
-                try:
-                    val = getattr(obj, fname, None)
-                    if val is not None:
-                        form.initial.setdefault(fname, val)
-                except Exception:
-                    pass
+                val = getattr(obj, fname, None)
+                if val is not None:
+                    form.initial.setdefault(fname, val)
 
         return form
 
     def form_valid(self, form):
         """
-        Ensure we don't overwrite login_actual/logoff_actual with NULL.
-        Also validate team_user / login_team_date / login_team_time vs Calendar shift.
+        - handle quick break_time buttons (0 / 30)
+        - preserve login_actual / logoff_actual
+        - validate calendar / shift
         """
-        # --- Preserve actual timestamps if form didn't supply them ---
-        obj = self.get_object()  # existing DB record
-        # If cleaned_data doesn't contain login_actual (or is falsy), keep existing
-        if "login_actual" not in form.cleaned_data or not form.cleaned_data.get("login_actual"):
-            form.instance.login_actual = getattr(obj, "login_actual", None)
-        else:
-            form.instance.login_actual = form.cleaned_data.get("login_actual")
 
-        if "logoff_actual" not in form.cleaned_data or not form.cleaned_data.get("logoff_actual"):
-            form.instance.logoff_actual = getattr(obj, "logoff_actual", None)
-        else:
-            form.instance.logoff_actual = form.cleaned_data.get("logoff_actual")
+        # -------------------------------------------------
+        # HANDLE QUICK BREAK BUTTONS
+        # -------------------------------------------------
+        set_break = self.request.POST.get("set_break")
+        if set_break in ("0", "30"):
+            form.instance.break_time = int(set_break)
 
-        # --- Validate team_user / login_team_date / login_team_time against Calendar ---
-        team_user = form.cleaned_data.get("team_user") or getattr(form.instance, "team_user", None)
-        login_team_date = form.cleaned_data.get("login_team_date") or getattr(form.instance, "login_team_date", None)
-        login_team_time = form.cleaned_data.get("login_team_time") or getattr(form.instance, "login_team_time", None)
+        # -------------------------------------------------
+        # PRESERVE ACTUAL TIMESTAMPS
+        # -------------------------------------------------
+        obj = self.get_object()
+
+        if not form.cleaned_data.get("login_actual"):
+            form.instance.login_actual = obj.login_actual
+
+        if not form.cleaned_data.get("logoff_actual"):
+            form.instance.logoff_actual = obj.logoff_actual
+
+        # -------------------------------------------------
+        # VALIDATE CALENDAR / SHIFT
+        # -------------------------------------------------
+        team_user = form.cleaned_data.get("team_user") or obj.team_user
+        login_team_date = form.cleaned_data.get("login_team_date") or obj.login_team_date
+        login_team_time = form.cleaned_data.get("login_team_time") or obj.login_team_time
 
         if not team_user:
             form.add_error("team_user", "Please select a Team user.")
@@ -2159,9 +2174,16 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
             form.add_error("login_team_date", "Please provide login team date.")
             return self.form_invalid(form)
 
-        cal = Calendar.objects.filter(team_user=team_user, date=login_team_date).first()
+        cal = Calendar.objects.filter(
+            team_user=team_user,
+            date=login_team_date
+        ).first()
+
         if not cal:
-            form.add_error("team_user", f"No calendar entry found for {team_user.username} on {login_team_date}.")
+            form.add_error(
+                "team_user",
+                f"No calendar entry found for {team_user.username} on {login_team_date}."
+            )
             return self.form_invalid(form)
 
         if not login_team_time:
@@ -2169,16 +2191,31 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
             return self.form_invalid(form)
 
         if not (cal.shift_start <= login_team_time <= cal.shift_end):
-            form.add_error("login_team_time", f"Selected time {login_team_time} is outside the team's shift ({cal.shift_start}–{cal.shift_end}).")
+            form.add_error(
+                "login_team_time",
+                f"Selected time {login_team_time} is outside the team's shift "
+                f"({cal.shift_start}–{cal.shift_end})."
+            )
             return self.form_invalid(form)
 
-        # All good — save and return
+        # -------------------------------------------------
+        # SAVE
+        # -------------------------------------------------
         response = super().form_valid(form)
-        messages.info(
-            self.request,
-            f"Operator login updated: Operator '{self.object.operator}', Team user '{self.object.team_user}'.",
-        )
+
+        if set_break in ("0", "30"):
+            messages.success(
+                self.request,
+                f"Break time set to {set_break} minutes."
+            )
+        else:
+            messages.info(
+                self.request,
+                "Operator login updated."
+            )
+
         return response
+
 
 
 class LoginOperatorDeleteView(PlannerAccessMixin, DeleteView):

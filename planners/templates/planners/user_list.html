@@ -21,6 +21,7 @@
             <th>Username</th>
             <th>Name</th>
             <th>Subdepartment</th>
+            <th>Login grace (min)</th>
             <th>Team Location</th>
             <th>Active</th>
             <th>Created</th>
@@ -35,6 +36,7 @@
             <td>{{ u.username }}</td>
             <td>{{ u.first_name }} {{ u.last_name }}</td>
             <td>{{ u.subdepartment }}</td>
+            <td>{{ u.login_grace_period }}</td>
             <td>{{ u.team_location|default:"-" }}</td>
             <td>
               {% if u.is_active %}
