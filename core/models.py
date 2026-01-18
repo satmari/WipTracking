@@ -441,6 +441,14 @@ class LoginOperator(models.Model):
         default='ACTIVE',
     )
 
+    break_time = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Break time (minutes)',
+        help_text='Break time in minutes'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

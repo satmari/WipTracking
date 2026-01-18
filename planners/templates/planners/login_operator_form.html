@@ -47,7 +47,6 @@
           </div>
         {% endif %}
 
-
         {% if not object %}
           {# hidden inputs so backend dobije vrednosti, ali korisnik ih ne vidi #}
           {{ form.login_actual }}
@@ -55,7 +54,6 @@
         {% endif %}
 
         {# ---------------- LOGIN TEAM DATE/TIME ---------------- #}
-
 
         {% if object %}
           <div class="col-md-4">
@@ -101,16 +99,42 @@
             {{ form.logoff_team_time.errors }}
           </div>
         {% else %}
-
           {{ form.logoff_team_date }}
           {{ form.logoff_team_time }}
         {% endif %}
 
-        <div class="col-12 mt-3">
-          <a href="{% url 'planners:login_operator_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
-          <button type="submit" class="btn btn-primary btn-sm">
+        {# ---------------- ACTION BUTTONS ---------------- #}
+        <div class="col-12 mt-3 d-flex gap-2">
+
+          <a href="{% url 'planners:login_operator_list' %}"
+             class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+
+
+          <button type="submit"
+                  class="btn btn-primary btn-sm">
             {% if object %}Save changes{% else %}Create{% endif %}
           </button>
+
+          {% if object %}
+            <button type="submit"
+                    name="set_break"
+                    value="0"
+                    class="btn btn-outline-warning btn-sm"
+                    onclick="return confirm('Save + Set break time to 0 minutes?');">
+              Save + Set break time 0 min
+            </button>
+
+            <button type="submit"
+                    name="set_break"
+                    value="30"
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="return confirm('Save + Set break time to 30 minutes?');">
+              Save + Set break time 30 min
+            </button>
+          {% endif %}
+
         </div>
       </form>
     </div>

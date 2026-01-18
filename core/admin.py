@@ -427,6 +427,7 @@ class LoginOperatorAdmin(admin.ModelAdmin):
         "login_team_time",
         "logoff_team_date",
         "logoff_team_time",
+        "break_time",
         "created_at_fmt",
         "updated_at_fmt",
     )
@@ -437,6 +438,7 @@ class LoginOperatorAdmin(admin.ModelAdmin):
         "operator",
         "login_team_date",
         "logoff_team_date",
+        "break_time",
     )
 
     search_fields = (
