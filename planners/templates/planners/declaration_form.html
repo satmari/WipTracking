@@ -7,7 +7,6 @@
 {% block extra_head %}
 <link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
 <style>
-  /* Select2 multiple pills container */
   .select2-container--default .select2-selection--multiple {
     min-height: 40px;
     padding: 6px 8px;
@@ -42,8 +41,12 @@
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">{% if object %}Edit Declaration #{{ object.id }}{% else %}New Declaration{% endif %}</h1>
-    <a href="{% url 'planners:declaration_list' %}" class="btn btn-sm btn-outline-secondary">← Back to list</a>
+    <h1 class="h4 mb-0">
+      {% if object %}Edit Declaration #{{ object.id }}{% else %}New Declaration{% endif %}
+    </h1>
+    <a href="{% url 'planners:declaration_list' %}" class="btn btn-sm btn-outline-secondary">
+      ← Back to list
+    </a>
   </div>
 
   <div class="card shadow-sm">
@@ -54,60 +57,82 @@
         <div class="mb-3">
           <label class="form-label">Team User *</label>
           {{ form.teamuser }}
-          {% if form.teamuser.errors %}<div class="invalid-feedback d-block">{{ form.teamuser.errors|striptags }}</div>{% endif %}
+          {% if form.teamuser.errors %}
+            <div class="invalid-feedback d-block">{{ form.teamuser.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">Subdepartment</label>
           {{ form.subdepartment }}
-          {% if form.subdepartment.errors %}<div class="invalid-feedback d-block">{{ form.subdepartment.errors|striptags }}</div>{% endif %}
+          {% if form.subdepartment.errors %}
+            <div class="invalid-feedback d-block">{{ form.subdepartment.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">PRO</label>
           {{ form.pro }}
-          {% if form.pro.errors %}<div class="invalid-feedback d-block">{{ form.pro.errors|striptags }}</div>{% endif %}
+          {% if form.pro.errors %}
+            <div class="invalid-feedback d-block">{{ form.pro.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">Routing</label>
           {{ form.routing }}
-          {% if form.routing.errors %}<div class="invalid-feedback d-block">{{ form.routing.errors|striptags }}</div>{% endif %}
+          {% if form.routing.errors %}
+            <div class="invalid-feedback d-block">{{ form.routing.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">Routing operation</label>
           {{ form.routing_operation }}
-          {% if form.routing_operation.errors %}<div class="invalid-feedback d-block">{{ form.routing_operation.errors|striptags }}</div>{% endif %}
+          {% if form.routing_operation.errors %}
+            <div class="invalid-feedback d-block">{{ form.routing_operation.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">SMV</label>
           {{ form.smv }}
-          {% if form.smv.errors %}<div class="invalid-feedback d-block">{{ form.smv.errors|striptags }}</div>{% endif %}
+          {% if form.smv.errors %}
+            <div class="invalid-feedback d-block">{{ form.smv.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">SMV ITA</label>
           {{ form.smv_ita }}
-          {% if form.smv_ita.errors %}<div class="invalid-feedback d-block">{{ form.smv_ita.errors|striptags }}</div>{% endif %}
+          {% if form.smv_ita.errors %}
+            <div class="invalid-feedback d-block">{{ form.smv_ita.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">Quantity *</label>
           {{ form.qty }}
-          {% if form.qty.errors %}<div class="invalid-feedback d-block">{{ form.qty.errors|striptags }}</div>{% endif %}
+          {% if form.qty.errors %}
+            <div class="invalid-feedback d-block">{{ form.qty.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">
           <label class="form-label">Operators</label>
           {{ form.operators|add_class:"select2-operators" }}
-          {% if form.operators.errors %}<div class="invalid-feedback d-block">{{ form.operators.errors|striptags }}</div>{% endif %}
+          {% if form.operators.errors %}
+            <div class="invalid-feedback d-block">{{ form.operators.errors|striptags }}</div>
+          {% endif %}
         </div>
 
         <div class="d-flex justify-content-between mt-4">
-          <a href="{% url 'planners:declaration_list' %}" class="btn btn-outline-secondary">Cancel</a>
-          <button type="submit" class="btn btn-success">{% if object %}Save changes{% else %}Create{% endif %}</button>
+          <a href="{% url 'planners:declaration_list' %}" class="btn btn-outline-secondary">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-success">
+            {% if object %}Save changes{% else %}Create{% endif %}
+          </button>
         </div>
       </form>
     </div>
@@ -119,76 +144,138 @@
 <script src="{% static 'js/select2.min.js' %}"></script>
 
 <script>
-  $(function(){
-    // Init Select2 for operators
-    $('.select2-operators').select2({
-      width: '100%',
-      placeholder: "Select operators...",
-      allowClear: true
-    });
+$(function(){
 
-    // When teamuser changes, fetch that teamuser's subdepartment via AJAX and fill the subdepartment select.
-    // Requires server endpoint planners:ajax_get_teamuser (implemented below)
-    $('#id_teamuser').on('change', function(){
-      var teamuser_id = $(this).val();
-      if (!teamuser_id) {
+  /* =======================
+     Select2 operators
+  ======================== */
+  $('.select2-operators').select2({
+    width: '100%',
+    placeholder: "Select operators...",
+    allowClear: true
+  });
+
+  /* =======================
+     TeamUser -> Subdepartment
+  ======================== */
+  $('#id_teamuser').on('change', function(){
+    var teamuser_id = $(this).val();
+    if (!teamuser_id) {
+      $('#id_subdepartment').val('');
+      return;
+    }
+    $.getJSON("{% url 'planners:ajax_get_teamuser' %}", { teamuser_id: teamuser_id })
+      .done(function(data){
+        $('#id_subdepartment').val(data.subdepartment_id || '');
+      })
+      .fail(function(){
         $('#id_subdepartment').val('');
-        return;
-      }
-      $.getJSON("{% url 'planners:ajax_get_teamuser' %}", { teamuser_id: teamuser_id })
-        .done(function(data){
-          if (data && data.subdepartment_id) {
-            $('#id_subdepartment').val(data.subdepartment_id);
-          } else {
-            $('#id_subdepartment').val('');
-          }
-        }).fail(function(){
-          $('#id_subdepartment').val('');
-        });
-    });
+      });
+  });
 
-    // PRO -> Routing (passes subdepartment so server filters routings by subdepartment too)
-    $('#id_pro').change(function(){
-      var pro_id = $(this).val();
-      var subdep = $('#id_subdepartment').val() || '';
-      $('#id_routing').empty().append('<option value="">Loading...</option>');
-      $('#id_routing_operation').empty().append('<option value="">---</option>');
-      if (!pro_id) {
-        $('#id_routing').empty().append('<option value="">---</option>');
-        return;
-      }
-      $.getJSON("{% url 'planners:ajax_get_routings' %}", { pro_id: pro_id, subdepartment: subdep })
-        .done(function(data){
-          $('#id_routing').empty().append('<option value="">--- Select routing ---</option>');
-          data.results.forEach(function(it){ $('#id_routing').append(new Option(it.text, it.id)); });
-        }).fail(function(){
-          $('#id_routing').empty().append('<option value="">Error</option>');
-        });
-    });
+  /* =======================
+     PRO -> Routing
+  ======================== */
+  $('#id_pro').on('change', function(){
+    var pro_id = $(this).val();
+    var subdep = $('#id_subdepartment').val() || '';
 
-    // Routing -> RoutingOperation
-    $('#id_routing').change(function(){
-      var routing_id = $(this).val();
-      $('#id_routing_operation').empty().append('<option value="">Loading...</option>');
-      if (!routing_id) {
-        $('#id_routing_operation').empty().append('<option value="">---</option>');
-        return;
-      }
-      $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", { routing_id: routing_id })
-        .done(function(data){
-          $('#id_routing_operation').empty().append('<option value="">--- Select operation ---</option>');
-          data.results.forEach(function(it){ $('#id_routing_operation').append(new Option(it.text, it.id)); });
-        }).fail(function(){
-          $('#id_routing_operation').empty().append('<option value="">Error</option>');
-        });
-    });
+    $('#id_routing').empty().append('<option value="">Loading...</option>');
+    $('#id_routing_operation').empty().append('<option value="">---</option>');
 
-    // on page load, if a teamuser is already selected try to populate subdepartment
-    var initial_tu = $('#id_teamuser').val();
-    if (initial_tu) {
-      $('#id_teamuser').trigger('change');
+    if (!pro_id) {
+      $('#id_routing').empty().append('<option value="">---</option>');
+      return;
     }
 
+    $.getJSON("{% url 'planners:ajax_get_routings' %}", {
+      pro_id: pro_id,
+      subdepartment: subdep
+    }).done(function(data){
+      $('#id_routing').empty().append('<option value="">--- Select routing ---</option>');
+      data.results.forEach(function(it){
+        $('#id_routing').append(new Option(it.text, it.id));
+      });
+    });
   });
+
+  /* =======================
+     Routing -> Operation
+  ======================== */
+  $('#id_routing').on('change', function(){
+    var routing_id = $(this).val();
+    $('#id_routing_operation').empty().append('<option value="">Loading...</option>');
+
+    if (!routing_id) {
+      $('#id_routing_operation').empty().append('<option value="">---</option>');
+      return;
+    }
+
+    $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", {
+      routing_id: routing_id
+    }).done(function(data){
+      $('#id_routing_operation')
+        .empty()
+        .append('<option value="">--- Select operation ---</option>');
+      data.results.forEach(function(it){
+        $('#id_routing_operation').append(new Option(it.text, it.id));
+      });
+    });
+  });
+
+  /* ==================================================
+     EDIT INIT: auto-load routing & operation on edit
+  =================================================== */
+  var initialPro = $('#id_pro').val();
+  var initialRouting = '{{ form.initial.routing|default_if_none:"" }}';
+  var initialRoutingOp = '{{ form.initial.routing_operation|default_if_none:"" }}';
+
+  if (initialPro) {
+    var subdep = $('#id_subdepartment').val() || '';
+
+    $.getJSON("{% url 'planners:ajax_get_routings' %}", {
+      pro_id: initialPro,
+      subdepartment: subdep
+    }).done(function(data){
+      $('#id_routing').empty().append('<option value="">--- Select routing ---</option>');
+      data.results.forEach(function(it){
+        $('#id_routing').append(new Option(it.text, it.id));
+      });
+
+      if (initialRouting) {
+        $('#id_routing').val(initialRouting).trigger('change.editInit');
+      }
+    });
+  }
+
+  $('#id_routing').on('change.editInit', function(){
+    var routing_id = $(this).val();
+    if (!routing_id) return;
+
+    $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", {
+      routing_id: routing_id
+    }).done(function(data){
+      $('#id_routing_operation')
+        .empty()
+        .append('<option value="">--- Select operation ---</option>');
+      data.results.forEach(function(it){
+        $('#id_routing_operation').append(new Option(it.text, it.id));
+      });
+
+      if (initialRoutingOp) {
+        $('#id_routing_operation').val(initialRoutingOp);
+      }
+    });
+
+    // run only once
+    $('#id_routing').off('change.editInit');
+  });
+
+  /* init subdepartment if teamuser already selected */
+  if ($('#id_teamuser').val()) {
+    $('#id_teamuser').trigger('change');
+  }
+
+});
 </script>
 {% endblock %}
