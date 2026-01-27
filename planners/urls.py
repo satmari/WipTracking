@@ -74,6 +74,9 @@ urlpatterns = [
     # MANUAL AUTO-LOGOUT
     path('login-operators/manual-logout/',ManualLogoutOperatorsView.as_view(),name='manual_logout_operators'),
 
+    # MANUAL AUTO BREAK 30
+    path("login-operators/auto-break-30/",ManualAssignBreak30View.as_view(),name="manual_assign_break_30",),
+
     # DECLARATIONS
     path("declarations/", views.DeclarationListView.as_view(), name="declaration_list"),
     path('declarations/add/', DeclarationCreateView.as_view(), name='declaration_add'),

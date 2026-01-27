@@ -2115,6 +2115,17 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
     template_name = "planners/login_operator_form.html"
     success_url = reverse_lazy("planners:login_operator_list")
 
+    # -------------------------------------------------
+    # CONTEXT (for break dropdown 0–30)
+    # -------------------------------------------------
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["range_0_30"] = range(0, 31)
+        return ctx
+
+    # -------------------------------------------------
+    # FORM SETUP
+    # -------------------------------------------------
     def get_form(self, form_class=None):
         """
         Hide actual login/logoff fields (we don't want them editable),
@@ -2128,12 +2139,16 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
             if fname in form.fields:
                 form.fields[fname].widget = HiddenInput()
                 form.fields[fname].required = False
+
                 val = getattr(obj, fname, None)
                 if val is not None:
                     form.initial.setdefault(fname, val)
 
         return form
 
+    # -------------------------------------------------
+    # SAVE LOGIC
+    # -------------------------------------------------
     def form_valid(self, form):
         """
         - handle quick break_time buttons (0 / 30)
@@ -2142,7 +2157,7 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
         """
 
         # -------------------------------------------------
-        # HANDLE QUICK BREAK BUTTONS
+        # HANDLE QUICK BREAK BUTTONS (override dropdown)
         # -------------------------------------------------
         set_break = self.request.POST.get("set_break")
         if set_break in ("0", "30"):
@@ -2663,7 +2678,6 @@ class ManualLogoutOperatorsView(LoginRequiredMixin, View):
 # ---------- DECLARATIONS ----------
 
 
-
 class DeclarationForm(forms.ModelForm):
     teamuser = forms.ModelChoiceField(
         queryset=TeamUser.objects.filter(is_active=True).order_by("username"),
@@ -2675,7 +2689,9 @@ class DeclarationForm(forms.ModelForm):
         queryset=Operator.objects.filter(act=True).order_by("badge_num"),
         required=False,
         label="Operators",
-        widget=forms.SelectMultiple(attrs={"class": "form-select select2-operators", "id": "id_operators"}),
+        widget=forms.SelectMultiple(
+            attrs={"class": "form-select select2-operators", "id": "id_operators"}
+        ),
     )
 
     class Meta:
@@ -2692,54 +2708,98 @@ class DeclarationForm(forms.ModelForm):
             "operators",
         ]
         widgets = {
-            "subdepartment": forms.Select(attrs={"class": "form-select", "id": "id_subdepartment"}),
+            "subdepartment": forms.Select(
+                attrs={"class": "form-select", "id": "id_subdepartment"}
+            ),
             "pro": forms.Select(attrs={"class": "form-select", "id": "id_pro"}),
             "routing": forms.Select(attrs={"class": "form-select", "id": "id_routing"}),
-            "routing_operation": forms.Select(attrs={"class": "form-select", "id": "id_routing_operation"}),
-            "smv": forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
-            "smv_ita": forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
-            "qty": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+            "routing_operation": forms.Select(
+                attrs={"class": "form-select", "id": "id_routing_operation"}
+            ),
+            "smv": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.001"}
+            ),
+            "smv_ita": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.001"}
+            ),
+            "qty": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
-        # optional kwargs supplied from views to narrow querysets
+        # kwargs from view
         pro = kwargs.pop("pro", None)
         routing = kwargs.pop("routing", None)
         operators_qs = kwargs.pop("operators_qs", None)
-        subdepartment = kwargs.pop("subdepartment", None)  # NEW: optional subdepartment filter
+        subdepartment = kwargs.pop("subdepartment", None)
 
         super().__init__(*args, **kwargs)
 
-        # Preserve subdepartment on edit instance
-        if self.instance and getattr(self.instance, "pk", None) and getattr(self.instance, "subdepartment", None):
-            self.fields["subdepartment"].initial = self.instance.subdepartment
+        instance = self.instance if self.instance.pk else None
 
-        # PRO queryset — only active pros
-        self.fields["pro"].queryset = Pro.objects.filter(status=True).order_by("del_date", "pro_name")
+        # -------------------------------------------------
+        # Subdepartment (preserve on edit)
+        # -------------------------------------------------
+        if instance and instance.subdepartment:
+            self.fields["subdepartment"].initial = instance.subdepartment
 
-        # Routing depends on pro -> narrow to same SKU and ready/status
-        if pro:
-            qs = Routing.objects.filter(status=True, ready=True, sku__iexact=pro.sku)
-            # if caller supplied subdepartment, enforce it
+        # -------------------------------------------------
+        # PRO queryset
+        # - create: only active PROs
+        # - edit: include instance.pro even if inactive
+        # -------------------------------------------------
+        pro_qs = Pro.objects.filter(status=True)
+
+        if instance and instance.pro:
+            pro_qs = pro_qs | Pro.objects.filter(pk=instance.pro.pk)
+
+        self.fields["pro"].queryset = (
+            pro_qs.distinct().order_by("del_date", "pro_name")
+        )
+
+        # -------------------------------------------------
+        # Routing queryset (depends on PRO + subdepartment)
+        # -------------------------------------------------
+        effective_pro = pro or (instance.pro if instance else None)
+
+        if effective_pro:
+            qs = Routing.objects.filter(
+                status=True,
+                ready=True,
+                sku__iexact=effective_pro.sku,
+            )
             if subdepartment:
                 qs = qs.filter(subdepartment=subdepartment)
             self.fields["routing"].queryset = qs.order_by("sku", "version")
         else:
             self.fields["routing"].queryset = Routing.objects.none()
 
-        # routing_operation depends on routing
-        if routing:
-            self.fields["routing_operation"].queryset = routing.routing_operations.all()
+        # -------------------------------------------------
+        # Routing operation queryset (depends on routing)
+        # -------------------------------------------------
+        effective_routing = routing or (instance.routing if instance else None)
+
+        if effective_routing:
+            self.fields["routing_operation"].queryset = (
+                effective_routing.routing_operations.all().order_by("id")
+            )
         else:
             self.fields["routing_operation"].queryset = RoutingOperation.objects.none()
 
-        # operators queryset (view can provide a narrower queryset)
+        # -------------------------------------------------
+        # Operators queryset
+        # -------------------------------------------------
         if operators_qs is not None:
             self.fields["operators"].queryset = operators_qs
         else:
-            self.fields["operators"].queryset = Operator.objects.filter(act=True).order_by("badge_num")
+            self.fields["operators"].queryset = (
+                Operator.objects.filter(act=True).order_by("badge_num")
+            )
 
-        # SMV fields optional in form (wizard/save will fill if empty)
+        # -------------------------------------------------
+        # Optional fields
+        # -------------------------------------------------
         self.fields["smv"].required = False
         self.fields["smv_ita"].required = False
 
@@ -2911,51 +2971,35 @@ class DeclarationDetailView(PlannerAccessMixin, DetailView):
         return ctx
 
 
+
 class DeclarationUpdateView(PlannerAccessMixin, UpdateView):
     model = Declaration
     form_class = DeclarationForm
-    template_name = "planners/declaration_form.html"  # same edit template
+    template_name = "planners/declaration_form.html"
     success_url = reverse_lazy("planners:declaration_list")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        # When editing, pass subdepartment so routing queryset is filtered to the declaration's subdepartment
-        instance = getattr(self, "object", None)
-        if instance and instance.subdepartment:
+        instance = self.get_object()
+
+        # ===== KLJUČNO ZA EDIT =====
+        # prosleđujemo INSTANCE vrednosti formi
+        # da queryset-i ne budu prazni
+        if instance.subdepartment:
             kwargs["subdepartment"] = instance.subdepartment
-        # also accept pro/routing like before
-        pro_id = self.request.GET.get("pro") or (self.request.POST.get("pro") if self.request.method == "POST" else None)
-        routing_id = self.request.GET.get("routing") or (self.request.POST.get("routing") if self.request.method == "POST" else None)
-        if pro_id:
-            try:
-                kwargs["pro"] = Pro.objects.get(pk=pro_id)
-            except Pro.DoesNotExist:
-                pass
-        if routing_id:
-            try:
-                kwargs["routing"] = Routing.objects.get(pk=routing_id)
-            except Routing.DoesNotExist:
-                pass
-        kwargs["operators_qs"] = Operator.objects.filter(act=True).order_by("badge_num")
+
+        if instance.pro:
+            kwargs["pro"] = instance.pro
+
+        if instance.routing:
+            kwargs["routing"] = instance.routing
+
+        # operators queryset (po potrebi možeš suziti)
+        kwargs["operators_qs"] = Operator.objects.filter(
+            act=True
+        ).order_by("badge_num")
+
         return kwargs
-
-    def form_valid(self, form):
-        teamuser = form.cleaned_data.get("teamuser")
-        if teamuser and not form.cleaned_data.get("subdepartment"):
-            form.instance.subdepartment = teamuser.subdepartment
-
-        ro = form.cleaned_data.get("routing_operation")
-        if ro:
-            if not form.cleaned_data.get("smv") and ro.smv is not None:
-                form.instance.smv = ro.smv
-            if not form.cleaned_data.get("smv_ita") and ro.smv_ita is not None:
-                form.instance.smv_ita = ro.smv_ita
-
-        response = super().form_valid(form)
-        # set M2M operators
-        form.instance.operators.set(form.cleaned_data.get("operators", []))
-        messages.info(self.request, f"Declaration #{self.object.id} updated.")
-        return response
 
 
 class DeclarationDeleteView(PlannerAccessMixin, DeleteView):
@@ -3703,6 +3747,21 @@ class OperatorBreakWizardView(PlannerAccessMixin, View):
 
         return self._render(request, step, form)
 
+# ----------  BREAK 30 ---------------------
+
+class ManualAssignBreak30View(PlannerAccessMixin, View):
+    def post(self, request):
+        from core.management.commands.auto_break_operators import run_auto_break
+
+        updated, skipped = run_auto_break()
+
+        messages.success(
+            request,
+            f"Auto break finished: {updated} updated, {skipped} skipped."
+        )
+
+        return redirect("planners:login_operator_list")
+
 
 # ---------- OPERATOR CAPACITY ----------
 
@@ -3819,6 +3878,8 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
         context["rows"] = rows
         context["selected_date"] = selected_date
         return context
+
+
 
 
 

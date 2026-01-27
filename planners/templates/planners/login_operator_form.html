@@ -1,142 +1,159 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
 {% load static %}
-{% load widget_tweaks %}
 
 {% block title %}
-  {% if object %}Edit operator login{% else %}Add operator login{% endif %}
+  {% if object %}
+    Edit Operator Login
+  {% else %}
+    Add Operator Login
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <h1 class="h4 mb-3">
-    {% if object %}Edit operator login{% else %}Add operator login{% endif %}
-  </h1>
+<div class="container-fluid mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">
+      {% if object %}
+        Edit Operator Login
+      {% else %}
+        Add Operator Login
+      {% endif %}
+    </h1>
+
+    <a href="{% url 'planners:login_operator_list' %}"
+       class="btn btn-sm btn-outline-secondary">
+      ← Back
+    </a>
+  </div>
 
   <div class="card shadow-sm">
     <div class="card-body">
-      <form method="post" class="row g-3">
+
+      <form method="post">
         {% csrf_token %}
-        {{ form.non_field_errors }}
 
-        {# Operator #}
-        <div class="col-md-4">
-          <label class="form-label">Operator</label>
-          {{ form.operator|add_class:"form-select" }}
-          {{ form.operator.errors }}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <!-- ========================= -->
+        <!-- BASIC FIELDS -->
+        <!-- ========================= -->
+
+        <div class="row g-3">
+
+          {% for field in form %}
+            {% if field.name != "break_time" %}
+              <div class="col-md-6">
+                <label class="form-label">
+                  {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.help_text %}
+                  <div class="form-text">
+                    {{ field.help_text }}
+                  </div>
+                {% endif %}
+
+                {% for error in field.errors %}
+                  <div class="text-danger small">
+                    {{ error }}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endfor %}
+
         </div>
 
-        {# Team user #}
-        <div class="col-md-4">
-          <label class="form-label">Team user</label>
-          {{ form.team_user|add_class:"form-select" }}
-          {{ form.team_user.errors }}
+        <!-- ========================= -->
+        <!-- BREAK TIME -->
+        <!-- ========================= -->
+
+        <hr class="my-4">
+
+        <div class="row">
+          <div class="col-md-4">
+
+            <label class="form-label">Break (minutes)</label>
+
+            <select name="break_time" class="form-select">
+              <option value=""
+                {% if form.instance.break_time is None %}
+                  selected
+                {% endif %}>
+                None
+              </option>
+
+              {% for m in range_0_30 %}
+                <option value="{{ m }}"
+                  {% if form.instance.break_time == m %}
+                    selected
+                  {% endif %}>
+                  {{ m }}
+                </option>
+              {% endfor %}
+            </select>
+
+            <div class="form-text">
+              Manual override of break duration (minutes).
+            </div>
+
+          </div>
         </div>
 
-        {# Status — visible only in edit; in create we keep it hidden and set server-side #}
-        {% if object %}
-          <div class="col-md-4">
-            <label class="form-label">Status</label>
-            {{ form.status|add_class:"form-select" }}
-            {{ form.status.errors }}
-          </div>
-        {% else %}
-          <div class="col-12">
-            <small class="text-muted">
-              Status <strong>ACTIVE</strong> will be recorded automatically.
-            </small>
-          </div>
-        {% endif %}
-
-        {% if not object %}
-          {# hidden inputs so backend dobije vrednosti, ali korisnik ih ne vidi #}
-          {{ form.login_actual }}
-          {{ form.logoff_actual }}
-        {% endif %}
-
-        {# ---------------- LOGIN TEAM DATE/TIME ---------------- #}
+        <!-- ========================= -->
+        <!-- QUICK BREAK BUTTONS (EDIT ONLY) -->
+        <!-- ========================= -->
 
         {% if object %}
-          <div class="col-md-4">
-            <label class="form-label">Login team date (DD.MM.YYYY.)</label>
-            {{ form.login_team_date|add_class:"form-control" }}
-            {{ form.login_team_date.errors }}
-          </div>
+          <div class="row mt-3">
+            <div class="col-md-6">
 
-          <div class="col-md-4">
-            <label class="form-label">Login team time (HH:MM)</label>
-            {{ form.login_team_time|add_class:"form-control" }}
-            {{ form.login_team_time.errors }}
-          </div>
-        {% else %}
-          <div class="col-auto" style="min-width:220px;">
-            <label class="form-label">Login team date (DD.MM.YYYY.)</label>
-            {{ form.login_team_date|add_class:"form-control form-control-sm" }}
-            {{ form.login_team_date.errors }}
-          </div>
-          <div class="col-auto" style="min-width:140px;">
-            <label class="form-label">Login team time (HH:MM)</label>
-            {{ form.login_team_time|add_class:"form-control form-control-sm" }}
-            {{ form.login_team_time.errors }}
+              <label class="form-label">Quick break</label>
+
+              <div class="d-flex gap-2">
+                <button type="submit"
+                        name="set_break"
+                        value="0"
+                        class="btn btn-outline-secondary btn-sm">
+                  Save + Set 0 min
+                </button>
+
+                <button type="submit"
+                        name="set_break"
+                        value="30"
+                        class="btn btn-outline-success btn-sm">
+                  Save + Set 30 min
+                </button>
+              </div>
+
+            </div>
           </div>
         {% endif %}
 
-        {# Logoff actual: never render in edit, hidden on create #}
-        {% if not object %}
-          {{ form.logoff_actual }}
-        {% endif %}
+        <!-- ========================= -->
+        <!-- ACTIONS -->
+        <!-- ========================= -->
 
-        {# Logoff team date/time: show only in edit (create leaves them blank) #}
-        {% if object %}
-          <div class="col-md-4">
-            <label class="form-label">Logoff team date</label>
-            {{ form.logoff_team_date|add_class:"form-control" }}
-            {{ form.logoff_team_date.errors }}
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Logoff team time</label>
-            {{ form.logoff_team_time|add_class:"form-control" }}
-            {{ form.logoff_team_time.errors }}
-          </div>
-        {% else %}
-          {{ form.logoff_team_date }}
-          {{ form.logoff_team_time }}
-        {% endif %}
-
-        {# ---------------- ACTION BUTTONS ---------------- #}
-        <div class="col-12 mt-3 d-flex gap-2">
-
-          <a href="{% url 'planners:login_operator_list' %}"
-             class="btn btn-secondary btn-sm">
-            Cancel
-          </a>
-
-
-          <button type="submit"
-                  class="btn btn-primary btn-sm">
-            {% if object %}Save changes{% else %}Create{% endif %}
+        <div class="mt-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            Save
           </button>
 
-          {% if object %}
-            <button type="submit"
-                    name="set_break"
-                    value="0"
-                    class="btn btn-outline-warning btn-sm"
-                    onclick="return confirm('Save + Set break time to 0 minutes?');">
-              Save + Set break time 0 min
-            </button>
-
-            <button type="submit"
-                    name="set_break"
-                    value="30"
-                    class="btn btn-outline-danger btn-sm"
-                    onclick="return confirm('Save + Set break time to 30 minutes?');">
-              Save + Set break time 30 min
-            </button>
-          {% endif %}
-
+          <a href="{% url 'planners:login_operator_list' %}"
+             class="btn btn-outline-secondary">
+            Cancel
+          </a>
         </div>
+
       </form>
+
     </div>
   </div>
 </div>

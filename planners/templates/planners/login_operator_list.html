@@ -10,17 +10,37 @@
     <h1 class="h4 mb-0">Operator logins</h1>
 
     <div class="d-flex gap-2">
-      <a href="{% url 'planners:login_operator_add' %}" class="btn btn-primary btn-sm">
+      <a href="{% url 'planners:login_operator_add' %}"
+         class="btn btn-primary btn-sm">
         + Add login
       </a>
-      <a href="{% url 'planners:login_operator_logout_wizard' %}" class="btn btn-warning btn-sm">
+
+      <a href="{% url 'planners:login_operator_logout_wizard' %}"
+         class="btn btn-warning btn-sm">
         + Add logout
       </a>
 
-      <form method="post" action="{% url 'planners:manual_logout_operators' %}" class="d-inline">
+      <!-- MANUAL AUTO-LOGOUT -->
+      <form method="post"
+            action="{% url 'planners:manual_logout_operators' %}"
+            class="d-inline">
         {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">
+        <button type="submit"
+                class="btn btn-danger btn-sm"
+                onclick="return confirm('Run manual auto-logout for operators?');">
           Run manual auto-logout
+        </button>
+      </form>
+
+      <!-- AUTO BREAK 30 -->
+      <form method="post"
+            action="{% url 'planners:manual_assign_break_30' %}"
+            class="d-inline">
+        {% csrf_token %}
+        <button type="submit"
+                class="btn btn-secondary btn-sm"
+                onclick="return confirm('Assign 30 min break for full-shift operators without break?');">
+          Auto break 30 min
         </button>
       </form>
     </div>
@@ -41,6 +61,7 @@
              style="width: 100%;">
         <thead class="table-light">
 
+          <!-- MAIN HEADER -->
           <tr>
             <th>ID</th>
             <th>Operator</th>
@@ -59,6 +80,7 @@
             <th class="text-end">Actions</th>
           </tr>
 
+          <!-- FILTER ROW -->
           <tr>
             <th><input class="form-control form-control-sm column-filter" data-column="0"></th>
             <th><input class="form-control form-control-sm column-filter" data-column="1"></th>
@@ -81,17 +103,16 @@
               </select>
             </th>
 
+            <!-- BREAK FILTER (INPUT, NOT DROPDOWN) -->
             <th>
-              <select class="form-select form-select-sm column-filter" data-column="10">
-                <option value="None">None</option>
-                <option value="0">0</option>
-                <option value="30">30</option>
-              </select>
+              <input type="text"
+                     class="form-control form-control-sm column-filter"
+                     data-column="10"
+                     placeholder="None / 0–30">
             </th>
 
             <th></th>
           </tr>
-
         </thead>
 
         <tbody>
@@ -141,12 +162,11 @@
 
             <td class="text-end">
               <a href="{% url 'planners:login_operator_edit' lo.pk %}"
-                 class="btn btn-sm btn-outline-secondary">Edit</a>
-              <a href="{% url 'planners:login_operator_delete' lo.pk %}"
-                 class="btn btn-sm btn-outline-danger">Delete</a>
+                 class="btn btn-sm btn-outline-secondary">
+                Edit
+              </a>
             </td>
           </tr>
-
           {% empty %}
           <tr>
             <td colspan="12" class="text-center text-muted py-4">
@@ -160,4 +180,58 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<style>
+  .column-filter {
+    min-width: 60px;
+    max-width: 200px;
+    font-size: .85rem;
+    padding: 2px 4px;
+  }
+</style>
+
+<script>
+$(document).ready(function () {
+    let table = $('#login-ops-table');
+
+    if ($.fn.dataTable.isDataTable(table)) {
+        table.DataTable().destroy();
+    }
+
+    let dt = initTableWithColumnFilters('#login-ops-table', {
+        order: [[0, 'desc']]
+    });
+
+    // -------------------------------------------------
+    // EXACT MATCH FILTER FOR "Break (min)" COLUMN
+    // -------------------------------------------------
+    const breakCol = 10;
+
+    $('input.column-filter[data-column="' + breakCol + '"]').on('keyup change', function () {
+        let val = $(this).val().trim();
+
+        if (!val) {
+            dt.column(breakCol).search('').draw();
+            return;
+        }
+
+        if (val.toLowerCase() === 'none') {
+            dt.column(breakCol).search('^None$', true, false).draw();
+            return;
+        }
+
+        if (/^\d+$/.test(val)) {
+            dt.column(breakCol).search('^' + val + '$', true, false).draw();
+            return;
+        }
+
+        // invalid input → no results
+        dt.column(breakCol).search('a^').draw();
+    });
+});
+</script>
 {% endblock %}
