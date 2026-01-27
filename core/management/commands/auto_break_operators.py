@@ -69,11 +69,8 @@ def run_auto_break(today=None, stdout=None):
 
             op = lo.operator
             label = f"{op.badge_num} {op.name}" if op else "N/A"
-            lines.append(
-                f"+ ID {lo.id} → break=30 "
-                f"[{lo.login_team_date}] "
-                f"({label})"
-            )
+            lines.append(f"+ ID {lo.id} -> break=30 [{lo.login_team_date}] ({label})")
+
 
         except Exception:
             skipped += 1
