@@ -11,13 +11,19 @@ from core.models import LoginOperator, Calendar
 LOG_FILE = os.path.join(settings.BASE_DIR, "log", "AutoBreak30.txt")
 
 
+def _stdout_safe(s: str) -> str:
+    """
+    Make string safe for Windows stdout (CP1252).
+    Unicode chars are replaced with '?'.
+    """
+    return s.encode("ascii", errors="replace").decode("ascii")
+
+
 def run_auto_break(today=None, stdout=None):
     now_local = timezone.localtime()
     today = today or now_local.date()
     date_from = today - timedelta(days=60)
 
-    # ⚠️ BITNO:
-    # koristimo ISKLJUČIVO team date / team time
     qs = (
         LoginOperator.objects
         .filter(
@@ -37,12 +43,11 @@ def run_auto_break(today=None, stdout=None):
     skipped = 0
 
     lines = []
-    lines.append(f"[{now_local}] AUTO BREAK CHECK ({date_from} → {today})")
+    lines.append(f"[{now_local}] AUTO BREAK CHECK ({date_from} -> {today})")
     lines.append(f"Candidates: {total}")
 
     for lo in qs:
         try:
-            # calendar po TEAM logici
             cal = Calendar.objects.filter(
                 team_user=lo.team_user,
                 date=lo.login_team_date
@@ -52,7 +57,6 @@ def run_auto_break(today=None, stdout=None):
                 skipped += 1
                 continue
 
-            # FULL SHIFT = TEAM TIME == SHIFT TIME
             if lo.login_team_time != cal.shift_start:
                 skipped += 1
                 continue
@@ -69,24 +73,30 @@ def run_auto_break(today=None, stdout=None):
 
             op = lo.operator
             label = f"{op.badge_num} {op.name}" if op else "N/A"
-            lines.append(f"+ ID {lo.id} -> break=30 [{lo.login_team_date}] ({label})")
-
+            lines.append(
+                f"+ ID {lo.id} -> break=30 [{lo.login_team_date}] ({label})"
+            )
 
         except Exception:
             skipped += 1
 
     lines.append(f"Done. Updated {updated}, skipped {skipped}")
 
-    # write log
+    # -------------------------------------------------
+    # WRITE LOG FILE (UTF-8, PRIMARY SOURCE)
+    # -------------------------------------------------
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write("\n" + "=" * 80 + "\n")
         for l in lines:
             f.write(l + "\n")
 
+    # -------------------------------------------------
+    # WRITE STDOUT (ASCII-SAFE FOR WINDOWS)
+    # -------------------------------------------------
     if stdout:
         for l in lines:
-            stdout.write(l + "\n")
+            stdout.write(_stdout_safe(l) + "\n")
 
     return updated, skipped
 
