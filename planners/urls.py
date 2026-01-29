@@ -102,6 +102,17 @@ urlpatterns = [
     # OPERATOR CAPACITY
     path("operator-capacity/",OperatorCapacityTodayView.as_view(),name="operator_capacity_today",),
 
+    # DOWNTIME
+    path("downtimes/", DowntimeListView.as_view(), name="downtime_list"),
+    path("downtimes/add/", DowntimeCreateView.as_view(), name="downtime_add"),
+    path("downtimes/<int:pk>/edit/", DowntimeUpdateView.as_view(), name="downtime_edit"),
+
+    # DOWNTIME DECLARATIONS
+    path("downtime-declarations/",DowntimeDeclarationListView.as_view(),name="downtime_declaration_list",),
+    path("downtime-declarations/wizard/",DowntimeDeclarationWizardView.as_view(),name="downtime_declaration_wizard",),
+    path("downtime-declarations/wizard/save/",DowntimeDeclarationSaveView.as_view(),name="downtime_declaration_save",),
+    path("downtime-declarations/wizard/cancel/",DowntimeDeclarationWizardCancelView.as_view(),name="downtime_declaration_wizard_cancel",),
+
     # AJAX endpoints
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),
     path('ajax/routing_operations/', ajax_get_routing_operations, name='ajax_get_routing_operations'),

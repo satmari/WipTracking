@@ -3,7 +3,7 @@ from django import forms
 # import datetime
 from datetime import datetime, date, time, timedelta
 import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -81,6 +81,12 @@ class PlannerDashboardView(PlannerAccessMixin, TemplateView):
         context["login_completed_count"] = LoginOperator.objects.filter(status="COMPLETED").count()
         context["login_ignore_count"] = LoginOperator.objects.filter(status="IGNORE").count()
         context["login_error_count"] = LoginOperator.objects.filter(status="ERROR").count()
+
+        context["downtime_count"] = Downtime.objects.count()
+        context["downtime_fixed_count"] = Downtime.objects.filter(fixed_duration=True).count()
+        context["downtime_variable_count"] = Downtime.objects.filter(fixed_duration=False).count()
+
+        context["downtime_declaration_count"] = DowntimeDeclaration.objects.count()
 
         # =========================================================
         # DECLARATIONS (TODAY)
@@ -2232,7 +2238,6 @@ class LoginOperatorUpdateView(PlannerAccessMixin, UpdateView):
         return response
 
 
-
 class LoginOperatorDeleteView(PlannerAccessMixin, DeleteView):
     model = LoginOperator
     template_name = "planners/confirm_delete.html"
@@ -2250,6 +2255,7 @@ class LoginOperatorDeleteView(PlannerAccessMixin, DeleteView):
             f"Operator login deleted: Operator '{op}', Team user '{tu}'.",
         )
         return response
+
 
 # ---------- LOGOUT  ----------
 
@@ -2969,7 +2975,6 @@ class DeclarationDetailView(PlannerAccessMixin, DetailView):
         ctx["created_at_fmt"] = d.created_at.strftime("%d.%m.%Y. %H:%M") if getattr(d, "created_at", None) else "-"
         ctx["updated_at_fmt"] = d.updated_at.strftime("%d.%m.%Y. %H:%M") if getattr(d, "updated_at", None) else "-"
         return ctx
-
 
 
 class DeclarationUpdateView(PlannerAccessMixin, UpdateView):
@@ -3880,8 +3885,455 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
         return context
 
 
+# ---------- DOWNTIME  ------------
+
+class DowntimeListView(PlannerAccessMixin, ListView):
+    model = Downtime
+    template_name = "planners/downtime_list.html"
+    context_object_name = "downtimes"
+    ordering = ["subdepartment__subdepartment", "downtime_name"]
+
+class DowntimeForm(forms.ModelForm):
+    class Meta:
+        model = Downtime
+        fields = [
+            "downtime_name",
+            "subdepartment",
+            "fixed_duration",
+            "downtime_value",
+        ]
+        widgets = {
+            "downtime_name": forms.TextInput(attrs={"class": "form-control"}),
+            "subdepartment": forms.Select(attrs={"class": "form-select"}),
+            "fixed_duration": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "downtime_value": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "step": "0.01",
+                    "min": "0",
+                }
+            ),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        fixed = cleaned.get("fixed_duration")
+        value = cleaned.get("downtime_value")
+
+        if fixed and value is None:
+            self.add_error(
+                "downtime_value",
+                "Downtime value is required when fixed duration is enabled."
+            )
+
+        return cleaned
 
 
+# ---------- DOWNTIME  ------------
+
+
+class DowntimeListView(PlannerAccessMixin, ListView):
+    model = Downtime
+    template_name = "planners/downtime_list.html"
+    context_object_name = "downtimes"
+    ordering = ["subdepartment__subdepartment", "downtime_name"]
+
+
+class DowntimeCreateView(PlannerAccessMixin, CreateView):
+    model = Downtime
+    form_class = DowntimeForm
+    template_name = "planners/downtime_form.html"
+    success_url = reverse_lazy("planners:downtime_list")
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            f"Downtime '{form.instance.downtime_name}' created."
+        )
+        return super().form_valid(form)
+
+
+class DowntimeUpdateView(PlannerAccessMixin, UpdateView):
+    model = Downtime
+    form_class = DowntimeForm
+    template_name = "planners/downtime_form.html"
+    success_url = reverse_lazy("planners:downtime_list")
+
+    def form_valid(self, form):
+        messages.info(
+            self.request,
+            f"Downtime '{form.instance.downtime_name}' updated."
+        )
+        return super().form_valid(form)
+
+
+class DowntimeDeclarationListView(PlannerAccessMixin, ListView):
+    model = DowntimeDeclaration
+    template_name = "planners/downtime_declaration_list.html"
+    context_object_name = "items"
+    paginate_by = 50
+    ordering = ["-created_at"]
+
+
+# ---------- DOWNTIME DECLARATIONS ------------
+
+# =========================
+# FORMS
+# =========================
+
+class _DTStep1TeamUserForm(forms.Form):
+    teamuser = forms.ModelChoiceField(
+        queryset=TeamUser.objects.filter(
+            is_active=True,
+            subdepartment__isnull=False
+        ).order_by("username"),
+        label="Select Team",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+
+class _DTStep2DateForm(forms.Form):
+    work_date = forms.DateField(
+        label="Select date",
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control"}
+        ),
+    )
+
+
+class _DTStep3LoginOperatorsForm(forms.Form):
+    login_operators = forms.ModelMultipleChoiceField(
+        queryset=LoginOperator.objects.none(),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        label="Operators with login",
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        qs = kwargs.pop("queryset", None)
+        super().__init__(*args, **kwargs)
+        if qs is not None:
+            self.fields["login_operators"].queryset = qs
+
+
+class _DTStep4DowntimeForm(forms.Form):
+    downtime = forms.ModelChoiceField(
+        queryset=Downtime.objects.none(),
+        label="Select Downtime",
+        widget=forms.RadioSelect,
+    )
+
+    def __init__(self, *args, **kwargs):
+        subdepartment = kwargs.pop("subdepartment", None)
+        super().__init__(*args, **kwargs)
+        if subdepartment:
+            self.fields["downtime"].queryset = (
+                Downtime.objects
+                .filter(subdepartment=subdepartment)
+                .order_by("downtime_name")
+            )
+
+
+class _DTStep5DurationForm(forms.Form):
+    downtime_value = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        decimal_places=2,
+        max_digits=6,
+        label="Downtime value (minutes)",
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        required=False,
+    )
+
+    repetition = forms.IntegerField(
+        min_value=1,
+        label="Repetition",
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        required=False,
+        initial=1,
+    )
+
+    def __init__(self, *args, **kwargs):
+        fixed_duration = kwargs.pop("fixed_duration", False)
+        super().__init__(*args, **kwargs)
+
+        if fixed_duration:
+            self.fields["downtime_value"].disabled = True
+        else:
+            self.fields["repetition"].widget = HiddenInput()
+            self.fields["repetition"].required = False
+
+
+# =========================
+# WIZARD (STEP 1–5)
+# =========================
+
+class DowntimeDeclarationWizardView(PlannerAccessMixin, View):
+    template_name = "planners/downtime_declaration_step_planner.html"
+
+    # -------- session helpers --------
+
+    def _get_wip(self, request):
+        return request.session.get("planner_downtime_wip", {})
+
+    def _save_wip(self, request, wip):
+        request.session["planner_downtime_wip"] = wip
+        request.session.modified = True
+
+    def _render(self, request, step, form, wip):
+        percent = int((step - 1) / 5 * 100)
+        return render(request, self.template_name, {
+            "step": step,
+            "form": form,
+            "percent": percent,
+        })
+
+    # -------- GET --------
+
+    def get(self, request):
+        step = int(request.GET.get("step", 1))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            form = _DTStep1TeamUserForm(
+                initial={"teamuser": wip.get("teamuser")}
+            )
+
+        elif step == 2:
+            form = _DTStep2DateForm(
+                initial={"work_date": wip.get("work_date")}
+            )
+
+        elif step == 3:
+            work_date = date.fromisoformat(wip["work_date"])
+
+            qs = (
+                LoginOperator.objects
+                .filter(
+                    team_user_id=wip["teamuser"],
+                    login_team_date=work_date,
+                )
+                .exclude(status="IGNORE")
+                .order_by("operator_id", "login_actual")
+            )
+
+            seen = set()
+            login_operator_ids = []
+
+            for lo in qs:
+                if lo.operator_id not in seen:
+                    seen.add(lo.operator_id)
+                    login_operator_ids.append(lo.id)
+
+            filtered_qs = LoginOperator.objects.filter(
+                id__in=login_operator_ids
+            )
+
+            form = _DTStep3LoginOperatorsForm(
+                queryset=filtered_qs,
+                initial={"login_operators": wip.get("login_operators", [])}
+            )
+
+        elif step == 4:
+            tu = TeamUser.objects.get(pk=wip["teamuser"])
+            form = _DTStep4DowntimeForm(
+                subdepartment=tu.subdepartment,
+                initial={"downtime": wip.get("downtime")}
+            )
+
+        elif step == 5:
+            dt = Downtime.objects.get(pk=wip["downtime"])
+            form = _DTStep5DurationForm(
+                fixed_duration=dt.fixed_duration,
+                initial={
+                    "downtime_value": wip.get("downtime_value"),
+                    "repetition": wip.get("repetition", 1),
+                }
+            )
+
+        else:
+            return redirect("?step=1")
+
+        return self._render(request, step, form, wip)
+
+    # -------- POST --------
+
+    def post(self, request):
+        step = int(request.POST.get("step", 1))
+        wip = self._get_wip(request)
+
+        # STEP 1 — TEAM
+        if step == 1:
+            form = _DTStep1TeamUserForm(request.POST)
+            if form.is_valid():
+                wip["teamuser"] = form.cleaned_data["teamuser"].id
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:downtime_declaration_wizard") + "?step=2"
+                )
+
+        # STEP 2 — DATE
+        elif step == 2:
+            form = _DTStep2DateForm(request.POST)
+            if form.is_valid():
+                wip["work_date"] = form.cleaned_data["work_date"].isoformat()
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:downtime_declaration_wizard") + "?step=3"
+                )
+
+        # STEP 3 — OPERATORS
+        elif step == 3:
+            work_date = date.fromisoformat(wip["work_date"])
+
+            qs = (
+                LoginOperator.objects
+                .filter(
+                    team_user_id=wip["teamuser"],
+                    login_team_date=work_date,
+                )
+                .exclude(status="IGNORE")
+                .order_by("operator_id", "login_actual")
+            )
+
+            seen = set()
+            login_operator_ids = []
+
+            for lo in qs:
+                if lo.operator_id not in seen:
+                    seen.add(lo.operator_id)
+                    login_operator_ids.append(lo.id)
+
+            filtered_qs = LoginOperator.objects.filter(
+                id__in=login_operator_ids
+            )
+
+            form = _DTStep3LoginOperatorsForm(
+                request.POST,
+                queryset=filtered_qs
+            )
+
+            if form.is_valid():
+                wip["login_operators"] = list(
+                    form.cleaned_data["login_operators"]
+                    .values_list("id", flat=True)
+                )
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:downtime_declaration_wizard") + "?step=4"
+                )
+
+        # STEP 4 — DOWNTIME
+        elif step == 4:
+            tu = TeamUser.objects.get(pk=wip["teamuser"])
+            form = _DTStep4DowntimeForm(
+                request.POST,
+                subdepartment=tu.subdepartment
+            )
+
+            if form.is_valid():
+                dt = form.cleaned_data["downtime"]
+                wip["downtime"] = dt.id
+                wip["fixed_duration"] = dt.fixed_duration
+
+                if dt.fixed_duration:
+                    # 🔥 KLJUČNO — Decimal → string
+                    wip["downtime_value"] = str(dt.downtime_value)
+                    wip["repetition"] = 1
+
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:downtime_declaration_wizard") + "?step=5"
+                )
+
+        # STEP 5 — DURATION
+        elif step == 5:
+            dt = Downtime.objects.get(pk=wip["downtime"])
+            form = _DTStep5DurationForm(
+                request.POST,
+                fixed_duration=dt.fixed_duration
+            )
+
+            if form.is_valid():
+                if not dt.fixed_duration:
+                    # 🔥 Decimal → string
+                    wip["downtime_value"] = str(
+                        form.cleaned_data["downtime_value"]
+                    )
+                    wip["repetition"] = 1
+                else:
+                    wip["repetition"] = form.cleaned_data.get("repetition", 1)
+
+                self._save_wip(request, wip)
+                return redirect(
+                    reverse("planners:downtime_declaration_save")
+                )
+
+        return self._render(request, step, form, wip)
+
+
+# =========================
+# SAVE
+# =========================
+
+class DowntimeDeclarationSaveView(PlannerAccessMixin, View):
+    def get(self, request):
+        wip = request.session.get("planner_downtime_wip")
+
+        if not wip:
+            messages.error(request, "No downtime declaration in progress.")
+            return redirect("planners:downtime_declaration_list")
+
+        # -----------------------
+        # SAFE DECIMAL CONVERSION
+        # -----------------------
+        try:
+            downtime_value = Decimal(str(wip["downtime_value"]))
+        except (InvalidOperation, TypeError, KeyError):
+            messages.error(
+                request,
+                "Invalid downtime value. Please re-enter downtime duration."
+            )
+            return redirect(
+                reverse("planners:downtime_declaration_wizard") + "?step=5"
+            )
+
+        repetition = int(wip.get("repetition", 1))
+
+        # -----------------------
+        # CREATE DECLARATIONS
+        # -----------------------
+        for lo_id in wip["login_operators"]:
+            DowntimeDeclaration.objects.create(
+                login_operator_id=lo_id,
+                downtime_id=wip["downtime"],
+                downtime_value=downtime_value,
+                repetition=repetition,
+            )
+
+        # -----------------------
+        # CLEAN SESSION
+        # -----------------------
+        request.session.pop("planner_downtime_wip", None)
+        request.session.modified = True
+
+        messages.success(
+            request,
+            "Downtime declarations created."
+        )
+
+        return redirect("planners:downtime_declaration_list")
+
+
+# =========================
+# CANCEL
+# =========================
+
+class DowntimeDeclarationWizardCancelView(PlannerAccessMixin, View):
+    def get(self, request):
+        request.session.pop("planner_downtime_wip", None)
+        request.session.modified = True
+        messages.info(request, "Downtime declaration canceled.")
+        return redirect("planners:downtime_declaration_list")
 
 
 

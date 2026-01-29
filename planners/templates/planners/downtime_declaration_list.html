@@ -1,0 +1,117 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Downtime Declarations{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+
+  <!-- ===== HEADER ===== -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">
+      Downtime Declarations
+      <span class="badge bg-secondary ms-2">{{ items|length }}</span>
+    </h1>
+
+    <a href="{% url 'planners:downtime_declaration_wizard' %}"
+       class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>
+      Declare downtime
+    </a>
+  </div>
+
+  <!-- ===== TABLE ===== -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+
+      <table id="downtime-declaration-table"
+             class="table table-striped table-hover mb-0 auto-init-filters"
+             style="width:100%;">
+
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Login operator</th>
+            <th>Downtime</th>
+            <th>Value (min)</th>
+            <th>Repetition</th>
+            <th>Total (min)</th>
+            <th>Created</th>
+          </tr>
+
+          <!-- FILTER ROW -->
+          <tr>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="0" placeholder="ID">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="1" placeholder="Operator">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="2" placeholder="Downtime">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="3" placeholder="Value">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="4" placeholder="Rep">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="5" placeholder="Total">
+            </th>
+            <th>
+              <input class="form-control form-control-sm column-filter"
+                     data-column="6" placeholder="Date">
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for obj in items %}
+          <tr>
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.login_operator }}</td>
+            <td>{{ obj.downtime }}</td>
+            <td>{{ obj.downtime_value }}</td>
+            <td>{{ obj.repetition }}</td>
+            <td>
+              <strong>{{ obj.downtime_total }}</strong>
+            </td>
+            <td>{{ obj.created_at|date:"d.m.Y H:i" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-3">
+              No downtime declarations found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<script>
+  $(function () {
+    initTableWithColumnFilters('#downtime-declaration-table', {
+      order: [[0, 'desc']],
+      pageLength: 25,
+      lengthMenu: [10, 25, 50, 100]
+    });
+  });
+</script>
+{% endblock %}

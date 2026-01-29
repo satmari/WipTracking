@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from decimal import Decimal
 
 
 class TeamUserManager(BaseUserManager):
@@ -614,3 +615,140 @@ class OperatorBreak(models.Model):
 
     def __str__(self):
         return f"{self.date} - {self.operator} / {self.team_user} / {self.break_type}"
+
+
+
+# --------- DOWNTIME ---------
+
+class Downtime(models.Model):
+
+    downtime_name = models.CharField(
+        max_length=100,
+        verbose_name="Downtime name",
+    )
+
+    subdepartment = models.ForeignKey(
+        Subdepartment,
+        on_delete=models.CASCADE,
+        related_name="downtimes",
+        verbose_name="Subdepartment",
+    )
+
+    fixed_duration = models.BooleanField(
+        default=False,
+        verbose_name="Fixed duration",
+        help_text="If checked, downtime has fixed duration in minutes"
+    )
+
+    downtime_value = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Downtime value (minutes)",
+        help_text="Duration in minutes (e.g. 2.50). Required if fixed duration is enabled."
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Downtime"
+        verbose_name_plural = "Downtimes"
+        ordering = ["subdepartment__subdepartment", "downtime_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["downtime_name", "subdepartment"],
+                name="unique_downtime_name_per_subdepartment",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.fixed_duration and self.downtime_value is None:
+            raise ValidationError(
+                {"downtime_value": "Downtime value is required when fixed duration is enabled."}
+            )
+
+        if self.downtime_value is not None and self.downtime_value <= Decimal("0"):
+            raise ValidationError(
+                {"downtime_value": "Downtime value must be greater than 0."}
+            )
+
+    def __str__(self):
+        return f"{self.downtime_name} / {self.subdepartment}"
+
+
+# --------- DOWNTIME DECLARATION ---------
+
+class DowntimeDeclaration(models.Model):
+
+    login_operator = models.ForeignKey(
+        LoginOperator,
+        on_delete=models.PROTECT,
+        related_name="downtime_declarations",
+        verbose_name="Login operator",
+    )
+
+    downtime = models.ForeignKey(
+        Downtime,
+        on_delete=models.PROTECT,
+        related_name="downtime_declarations",
+        verbose_name="Downtime",
+    )
+
+    downtime_value = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        verbose_name="Downtime value (minutes)",
+        help_text="Single downtime duration in minutes",
+    )
+
+    repetition = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Repetition",
+        help_text="Number of repetitions",
+    )
+
+    downtime_total = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        verbose_name="Total downtime (minutes)",
+        editable=False,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # ❗ BITNO: core_ prefiks dodaje Django automatski
+        db_table = "core_downtimedeclaration"
+        verbose_name = "Downtime Declaration"
+        verbose_name_plural = "Downtime Declarations"
+        ordering = ["-created_at"]
+
+    def clean(self):
+        super().clean()
+
+        if self.downtime_value is None or self.downtime_value <= Decimal("0"):
+            raise ValidationError(
+                {"downtime_value": "Downtime value must be greater than 0."}
+            )
+
+        if self.repetition <= 0:
+            raise ValidationError(
+                {"repetition": "Repetition must be at least 1."}
+            )
+
+    def save(self, *args, **kwargs):
+        # auto-calculate total
+        self.downtime_total = self.downtime_value * self.repetition
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.login_operator} | "
+            f"{self.downtime} | "
+            f"{self.downtime_total} min"
+        )

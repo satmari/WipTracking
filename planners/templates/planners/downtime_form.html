@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Downtime{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h1 class="h4 mb-3">
+    {% if form.instance.pk %}Edit Downtime{% else %}Add Downtime{% endif %}
+  </h1>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        {# ===== ROW 1 ===== #}
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.downtime_name.id_for_label }}">
+            Downtime name
+          </label>
+          {{ form.downtime_name|add_class:"form-control" }}
+          {{ form.downtime_name.errors }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.subdepartment.id_for_label }}">
+            Subdepartment
+          </label>
+          {{ form.subdepartment|add_class:"form-select" }}
+          {{ form.subdepartment.errors }}
+        </div>
+
+        <div class="w-100"></div> {# force new row #}
+
+        {# ===== ROW 2 ===== #}
+        <div class="col-md-4">
+          <div class="form-check form-switch mt-2">
+            {{ form.fixed_duration|add_class:"form-check-input form-check-input-lg" }}
+            <label class="form-check-label fw-semibold ms-2"
+                   for="{{ form.fixed_duration.id_for_label }}">
+              Fixed downtime duration
+            </label>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.downtime_value.id_for_label }}">
+            Downtime value
+          </label>
+          <div class="input-group">
+            {{ form.downtime_value|add_class:"form-control text-end" }}
+            <span class="input-group-text">min</span>
+          </div>
+          {{ form.downtime_value.errors }}
+        </div>
+
+        {# ===== ACTIONS ===== #}
+        <div class="col-12 mt-4">
+          <a href="{% url 'planners:downtime_list' %}"
+             class="btn btn-secondary btn-sm">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary btn-sm ms-1">
+            {% if form.instance.pk %}Save changes{% else %}Create downtime{% endif %}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+
+<script>
+(function () {
+  const fixedCheckbox = document.getElementById("id_fixed_duration");
+  const valueInput = document.getElementById("id_downtime_value");
+  const valueGroup = valueInput.closest(".input-group");
+
+  function syncState() {
+    if (fixedCheckbox.checked) {
+      valueInput.disabled = false;
+      valueInput.required = true;
+      valueGroup.classList.remove("opacity-50");
+    } else {
+      valueInput.disabled = true;
+      valueInput.required = false;
+      valueInput.value = "";
+      valueGroup.classList.add("opacity-50");
+    }
+  }
+
+  fixedCheckbox.addEventListener("change", syncState);
+  syncState(); // initial state on page load
+})();
+</script>
+{% endblock %}
