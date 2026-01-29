@@ -257,6 +257,40 @@
 <!--      </div>-->
 <!--    </div>-->
 
+    {# 12. DOWNTIMES #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-info">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Downtimes</h5>
+          <p class="display-6 mb-1">{{ downtime_count }}</p>
+          <p class="text-muted small mb-1">
+            Fixed: {{ downtime_fixed_count }} |
+            Variable: {{ downtime_variable_count }}
+          </p>
+          <a href="{% url 'planners:downtime_list' %}"
+             class="btn btn-outline-info btn-sm mt-auto">
+            Manage downtimes
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {# 14. DOWNTIME DECLARATIONS #}
+    <div class="col">
+      <div class="card shadow-sm h-100 border-info">
+        <div class="card-body d-flex flex-column text-center">
+          <h5 class="card-title mb-1">Downtime Declarations</h5>
+          <p class="display-6 mb-1">{{ downtime_declaration_count }}</p>
+          <p class="text-muted small mb-3">Declared downtimes.</p>
+          <a href="{% url 'planners:downtime_declaration_list' %}"
+             class="btn btn-outline-info btn-sm mt-auto">
+            View declarations
+          </a>
+        </div>
+      </div>
+    </div>
+
+
   </div>
 </div>
 

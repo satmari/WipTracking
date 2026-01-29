@@ -572,3 +572,129 @@ class OperatorBreakAdmin(admin.ModelAdmin):
 
     ordering = ("-date", "operator")
     readonly_fields = ("created_at", "updated_at")
+
+
+# ------- DOWNTIME -------
+
+@admin.register(Downtime)
+class DowntimeAdmin(admin.ModelAdmin):
+
+    def created_at_fmt(self, obj):
+        return format_datetime(obj.created_at)
+    created_at_fmt.short_description = "Created"
+
+    def updated_at_fmt(self, obj):
+        return format_datetime(obj.updated_at)
+    updated_at_fmt.short_description = "Updated"
+
+    list_display = (
+        "id",
+        "downtime_name",
+        "subdepartment",
+        "fixed_duration",
+        "downtime_value",
+        "created_at_fmt",
+        "updated_at_fmt",
+    )
+
+    list_filter = (
+        "subdepartment",
+        "fixed_duration",
+        "downtime_value",
+    )
+
+    search_fields = (
+        "downtime_name",
+        "subdepartment__subdepartment",
+    )
+
+    ordering = (
+        "subdepartment__subdepartment",
+        "downtime_name",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "downtime_name",
+                    "subdepartment",
+                    "fixed_duration",
+                    "downtime_value",
+                )
+            },
+        ),
+        ("Audit info", {"fields": ("created_at", "updated_at")}),
+    )
+
+# ------- DOWNTIME DECLARATION -------
+@admin.register(DowntimeDeclaration)
+class DowntimeDeclarationAdmin(admin.ModelAdmin):
+
+    def created_at_fmt(self, obj):
+        return format_datetime(obj.created_at)
+    created_at_fmt.short_description = "Created"
+
+    def updated_at_fmt(self, obj):
+        return format_datetime(obj.updated_at)
+    updated_at_fmt.short_description = "Updated"
+
+    list_display = (
+        "id",
+        "login_operator",
+        "downtime",
+        "downtime_value",
+        "repetition",
+        "downtime_total",
+        "created_at_fmt",
+        "updated_at_fmt",
+    )
+
+    list_filter = (
+        "downtime",
+        "login_operator",
+        "created_at",
+    )
+
+    search_fields = (
+        "login_operator__operator__badge_num",
+        "login_operator__operator__name",
+        "downtime__downtime_name",
+    )
+
+    ordering = ("-created_at",)
+
+    readonly_fields = (
+        "downtime_total",
+        "created_at",
+        "updated_at",
+    )
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "login_operator",
+                    "downtime",
+                )
+            },
+        ),
+        (
+            "Values",
+            {
+                "fields": (
+                    "downtime_value",
+                    "repetition",
+                    "downtime_total",
+                )
+            },
+        ),
+        ("Audit info", {"fields": ("created_at", "updated_at")}),
+    )
