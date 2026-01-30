@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}
-Declare Downtime — Team Wizard (Step {{ step }} of 4)
+Declare Downtime — Team Wizard (Step {{ step }} of 3)
 {% endblock %}
 
 {% block extra_head %}
@@ -161,12 +161,16 @@ Declare Downtime — Team Wizard (Step {{ step }} of 4)
 
             {% for field in form %}
               <div class="mb-3">
-                <label class="declaration-form-label">
-                  {{ field.label }}
-                  {% if field.field.required %}
-                    <span class="text-danger">*</span>
-                  {% endif %}
-                </label>
+
+                {# ===== LABEL (NE PRIKAZUJ AKO JE HIDDEN) ===== #}
+                {% if field.field.widget.input_type != "hidden" %}
+                  <label class="declaration-form-label">
+                    {{ field.label }}
+                    {% if field.field.required %}
+                      <span class="text-danger">*</span>
+                    {% endif %}
+                  </label>
+                {% endif %}
 
                 {# ===== OPERATORS ===== #}
                 {% if field.field.widget.input_type == "checkbox" %}
@@ -201,7 +205,7 @@ Declare Downtime — Team Wizard (Step {{ step }} of 4)
                     {% endfor %}
                   </div>
 
-                {# ===== NORMAL INPUT ===== #}
+                {# ===== NORMAL / HIDDEN INPUT ===== #}
                 {% else %}
                   {{ field }}
                 {% endif %}
