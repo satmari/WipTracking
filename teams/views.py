@@ -6,7 +6,7 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
-from django.forms.widgets import CheckboxSelectMultiple
+from django.forms.widgets import CheckboxSelectMultiple, HiddenInput
 from datetime import datetime, timedelta
 
 from core.models import *
@@ -324,8 +324,6 @@ class OperatorLogoutView(TeamAccessMixin, TemplateView):
 
 # ---------- DECLARATION WIZARD (multi-step, inline forms) ----------
 
-# Inline forms — no separate forms.py required
-
 
 class _Step1ProForm(forms.Form):
     pro = forms.ModelChoiceField(queryset=Pro.objects.filter(status=True), label="Select PRO")
@@ -428,6 +426,208 @@ class _Step5OperatorsForm(forms.Form):
         super().__init__(*args, **kwargs)
         if qs is not None:
             self.fields["operators"].queryset = qs
+
+
+# ==========================================================
+# TEAM DOWNTIME WIZARD  ✅ FIXED
+# ==========================================================
+
+class _TDStep1LoginOperatorsForm(forms.Form):
+    login_operators = forms.ModelMultipleChoiceField(
+        queryset=LoginOperator.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        label="Operators",
+    )
+
+    def __init__(self, *args, **kwargs):
+        qs = kwargs.pop("queryset", None)
+        super().__init__(*args, **kwargs)
+        if qs is not None:
+            self.fields["login_operators"].queryset = qs
+
+
+class _TDStep2DowntimeForm(forms.Form):
+    downtime = forms.ModelChoiceField(
+        queryset=Downtime.objects.none(),
+        widget=forms.RadioSelect,
+        label="Select Downtime",
+    )
+
+    def __init__(self, *args, **kwargs):
+        subdepartment = kwargs.pop("subdepartment", None)
+        super().__init__(*args, **kwargs)
+        if subdepartment:
+            self.fields["downtime"].queryset = Downtime.objects.filter(
+                subdepartment=subdepartment
+            ).order_by("downtime_name")
+
+
+class _TDStep3DurationForm(forms.Form):
+    downtime_value = forms.DecimalField(
+        decimal_places=2,
+        max_digits=6,
+        min_value=Decimal("0.01"),
+        required=False,
+        label="Downtime (minutes)",
+    )
+
+    repetition = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        required=False,
+        label="Repetition",
+    )
+
+    def __init__(self, *args, **kwargs):
+        fixed_duration = kwargs.pop("fixed_duration", False)
+        super().__init__(*args, **kwargs)
+
+        if fixed_duration:
+            # downtime_value → readonly / disabled
+            self.fields["downtime_value"].required = False
+            self.fields["downtime_value"].widget.attrs.update({
+                "disabled": True,
+            })
+
+            # repetition → USER MUST ENTER
+            self.fields["repetition"].required = True
+
+        else:
+            # downtime_value → USER ENTERS
+            self.fields["downtime_value"].required = True
+
+            # repetition → hidden, always = 1
+            self.fields["repetition"].widget = HiddenInput()
+            self.initial["repetition"] = 1
+
+
+class TeamDowntimeWizardView(TeamAccessMixin, View):
+    template_name = "teams/downtime_step.html"
+
+    def _get_wip(self, request):
+        return request.session.get("team_downtime_wip", {})
+
+    def _save_wip(self, request, wip):
+        request.session["team_downtime_wip"] = wip
+        request.session.modified = True
+
+    def get(self, request):
+        step = int(request.GET.get("step", 1))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            qs = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=timezone.localdate(),
+                status__in=["ACTIVE", "COMPLETED"],
+            )
+            form = _TDStep1LoginOperatorsForm(
+                queryset=qs,
+                initial={"login_operators": wip.get("login_operators", [])}
+            )
+
+        elif step == 2:
+            form = _TDStep2DowntimeForm(
+                subdepartment=request.user.subdepartment,
+                initial={"downtime": wip.get("downtime")}
+            )
+
+
+        elif step == 3:
+            dt = Downtime.objects.get(pk=wip["downtime"])
+            form = _TDStep3DurationForm(
+                fixed_duration=dt.fixed_duration,
+                initial={
+                    "downtime_value": dt.downtime_value if dt.fixed_duration else wip.get("downtime_value"),
+                    "repetition": wip.get("repetition", 1),
+                }
+            )
+        else:
+            return redirect("teams:downtime_wizard")
+
+        return render(request, self.template_name, {
+            "step": step,
+            "form": form,
+            "percent": int((step - 1) / 3 * 100),
+        })
+
+    def post(self, request):
+        step = int(request.POST.get("step"))
+        wip = self._get_wip(request)
+
+        if step == 1:
+            qs = LoginOperator.objects.filter(
+                team_user=request.user,
+                login_team_date=timezone.localdate(),
+            )
+            form = _TDStep1LoginOperatorsForm(request.POST, queryset=qs)
+            if form.is_valid():
+                wip["login_operators"] = list(
+                    form.cleaned_data["login_operators"].values_list("id", flat=True)
+                )
+                self._save_wip(request, wip)
+                return redirect(f"{reverse('teams:downtime_wizard')}?step=2")
+
+        elif step == 2:
+            form = _TDStep2DowntimeForm(request.POST, subdepartment=request.user.subdepartment)
+            if form.is_valid():
+                dt = form.cleaned_data["downtime"]
+                wip["downtime"] = dt.id
+                if dt.fixed_duration:
+                    wip["downtime_value"] = str(dt.downtime_value)
+                    wip["repetition"] = 1
+                self._save_wip(request, wip)
+                return redirect(f"{reverse('teams:downtime_wizard')}?step=3")
+
+        elif step == 3:
+            dt = Downtime.objects.get(pk=wip["downtime"])
+            form = _TDStep3DurationForm(request.POST, fixed_duration=dt.fixed_duration)
+            if form.is_valid():
+
+                if dt.fixed_duration:
+                    downtime_value = Decimal(dt.downtime_value)
+                    repetition = int(form.cleaned_data["repetition"])
+                else:
+                    downtime_value = Decimal(form.cleaned_data["downtime_value"])
+                    repetition = 1
+
+                wip["downtime_value"] = str(downtime_value)
+                wip["repetition"] = repetition
+                wip["downtime_total"] = str(downtime_value * repetition)
+
+                self._save_wip(request, wip)
+                return redirect("teams:downtime_wizard_save")
+
+        return render(request, self.template_name, {"form": form, "step": step})
+
+
+class TeamDowntimeSaveView(TeamAccessMixin, View):
+    def get(self, request):
+        wip = request.session.get("team_downtime_wip")
+        if not wip:
+            messages.error(request, "No downtime in progress.")
+            return redirect("teams:team_dashboard")
+
+        for lo_id in wip["login_operators"]:
+            DowntimeDeclaration.objects.create(
+                login_operator_id=lo_id,
+                downtime_id=wip["downtime"],
+                downtime_value=Decimal(wip["downtime_value"]),
+                repetition=int(wip["repetition"]),
+                downtime_total=Decimal(wip["downtime_total"]),
+            )
+
+        request.session.pop("team_downtime_wip", None)
+        messages.success(request, "Downtime declared.")
+        return redirect("teams:team_dashboard")
+
+
+class TeamDowntimeWizardCancelView(TeamAccessMixin, View):
+    def get(self, request):
+        request.session.pop("team_downtime_wip", None)
+        messages.info(request, "Downtime canceled.")
+        return redirect("teams:team_dashboard")
 
 
 # Session helper
