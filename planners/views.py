@@ -3967,6 +3967,9 @@ class DowntimeUpdateView(PlannerAccessMixin, UpdateView):
         return super().form_valid(form)
 
 
+# ---------- DOWNTIME DECLARATION EDIT  ------------
+
+
 class DowntimeDeclarationListView(PlannerAccessMixin, ListView):
     model = DowntimeDeclaration
     template_name = "planners/downtime_declaration_list.html"
@@ -3975,11 +3978,79 @@ class DowntimeDeclarationListView(PlannerAccessMixin, ListView):
     ordering = ["-created_at"]
 
 
-# ---------- DOWNTIME DECLARATIONS ------------
+class DowntimeDeclarationForm(forms.ModelForm):
+    class Meta:
+        model = DowntimeDeclaration
+        fields = ["downtime_value", "repetition"]
 
-# =========================
-# FORMS
-# =========================
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        downtime = self.instance.downtime
+
+        if downtime.fixed_duration:
+            # 🧊 FIXED DOWNTIME
+            # value je zaključan, repetition editable
+            self.fields["downtime_value"].disabled = True
+
+        else:
+            # 🔥 NON-FIXED DOWNTIME
+            # repetition je UVEK 1 i sakriven
+            self.fields["repetition"].widget = forms.HiddenInput()
+            self.fields["repetition"].initial = 1
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        downtime = obj.downtime
+
+        if downtime.fixed_duration:
+            # 🧊 fixed → value se NE menja
+            obj.downtime_value = self.instance.downtime_value
+        else:
+            # 🔥 non-fixed → repetition uvek 1
+            obj.repetition = 1
+
+        # total se računa u model.save()
+        if commit:
+            obj.save()
+
+        return obj
+
+
+class DowntimeDeclarationFormView(LoginRequiredMixin, View):
+    template_name = "planners/downtime_declaration_form.html"
+
+    def get(self, request, pk):
+        obj = get_object_or_404(DowntimeDeclaration, pk=pk)
+        form = DowntimeDeclarationForm(instance=obj)
+        return render(request, self.template_name, {
+            "form": form,
+            "obj": obj,
+        })
+
+    def post(self, request, pk):
+        obj = get_object_or_404(DowntimeDeclaration, pk=pk)
+        form = DowntimeDeclarationForm(request.POST, instance=obj)
+
+        if form.is_valid():
+            form.save()
+            return redirect("planners:downtime_declaration_list")
+
+        return render(request, self.template_name, {
+            "form": form,
+            "obj": obj,
+        })
+
+
+class DowntimeDeclarationDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        obj = get_object_or_404(DowntimeDeclaration, pk=pk)
+        obj.delete()
+        return redirect("planners:downtime_declaration_list")
+
+
+# ---------- DOWNTIME DECLARATION CREATION IN STEPS  ------------
+
 
 class _DTStep1TeamUserForm(forms.Form):
     teamuser = forms.ModelChoiceField(
