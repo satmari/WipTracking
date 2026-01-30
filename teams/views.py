@@ -8,6 +8,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.forms.widgets import CheckboxSelectMultiple, HiddenInput
 from datetime import datetime, timedelta
+from django.db.models import Min
+
 
 from core.models import *
 
@@ -443,8 +445,14 @@ class _TDStep1LoginOperatorsForm(forms.Form):
     def __init__(self, *args, **kwargs):
         qs = kwargs.pop("queryset", None)
         super().__init__(*args, **kwargs)
+
         if qs is not None:
             self.fields["login_operators"].queryset = qs
+
+        # 👇 LABEL: samo badge + ime
+        self.fields["login_operators"].label_from_instance = (
+            lambda lo: f"{lo.operator.badge_num} - {lo.operator.name}"
+        )
 
 
 class _TDStep2DowntimeForm(forms.Form):
@@ -517,11 +525,20 @@ class TeamDowntimeWizardView(TeamAccessMixin, View):
         wip = self._get_wip(request)
 
         if step == 1:
-            qs = LoginOperator.objects.filter(
+            base_qs = LoginOperator.objects.filter(
                 team_user=request.user,
                 login_team_date=timezone.localdate(),
                 status__in=["ACTIVE", "COMPLETED"],
             )
+
+            first_ids = (
+                base_qs
+                .values("operator_id")
+                .annotate(first_id=Min("id"))
+                .values_list("first_id", flat=True)
+            )
+
+            qs = LoginOperator.objects.filter(id__in=first_ids)
             form = _TDStep1LoginOperatorsForm(
                 queryset=qs,
                 initial={"login_operators": wip.get("login_operators", [])}
@@ -557,10 +574,20 @@ class TeamDowntimeWizardView(TeamAccessMixin, View):
         wip = self._get_wip(request)
 
         if step == 1:
-            qs = LoginOperator.objects.filter(
+            base_qs = LoginOperator.objects.filter(
                 team_user=request.user,
                 login_team_date=timezone.localdate(),
+                status__in=["ACTIVE", "COMPLETED"],
             )
+
+            first_ids = (
+                base_qs
+                .values("operator_id")
+                .annotate(first_id=Min("id"))
+                .values_list("first_id", flat=True)
+            )
+
+            qs = LoginOperator.objects.filter(id__in=first_ids)
             form = _TDStep1LoginOperatorsForm(request.POST, queryset=qs)
             if form.is_valid():
                 wip["login_operators"] = list(
