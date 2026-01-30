@@ -37,9 +37,10 @@
             <th>Repetition</th>
             <th>Total (min)</th>
             <th>Created</th>
+            <th class="text-center">Actions</th>
           </tr>
 
-          <!-- FILTER ROW -->
+          <!-- ===== FILTER ROW ===== -->
           <tr>
             <th>
               <input class="form-control form-control-sm column-filter"
@@ -69,6 +70,7 @@
               <input class="form-control form-control-sm column-filter"
                      data-column="6" placeholder="Date">
             </th>
+            <th></th>
           </tr>
         </thead>
 
@@ -80,14 +82,32 @@
             <td>{{ obj.downtime }}</td>
             <td>{{ obj.downtime_value }}</td>
             <td>{{ obj.repetition }}</td>
-            <td>
-              <strong>{{ obj.downtime_total }}</strong>
-            </td>
+            <td><strong>{{ obj.downtime_total }}</strong></td>
             <td>{{ obj.created_at|date:"d.m.Y H:i" }}</td>
+
+            <!-- ACTIONS -->
+            <td class="text-center">
+              <!-- EDIT JE UVEK DOSTUPAN -->
+              <a href="{% url 'planners:downtime_declaration_form' obj.id %}"
+                 class="btn btn-sm btn-outline-primary me-1">
+                Edit
+              </a>
+
+              <form method="post"
+                    action="{% url 'planners:downtime_declaration_delete' obj.id %}"
+                    class="d-inline"
+                    onsubmit="return confirm('Delete this downtime declaration?');">
+                {% csrf_token %}
+                <button type="submit"
+                        class="btn btn-sm btn-outline-danger">
+                  Delete
+                </button>
+              </form>
+            </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-3">
+            <td colspan="8" class="text-center text-muted py-3">
               No downtime declarations found.
             </td>
           </tr>
@@ -104,7 +124,6 @@
 
 {% block scripts %}
 {{ block.super }}
-
 <script>
   $(function () {
     initTableWithColumnFilters('#downtime-declaration-table', {

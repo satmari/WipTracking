@@ -113,6 +113,10 @@ urlpatterns = [
     path("downtime-declarations/wizard/save/",DowntimeDeclarationSaveView.as_view(),name="downtime_declaration_save",),
     path("downtime-declarations/wizard/cancel/",DowntimeDeclarationWizardCancelView.as_view(),name="downtime_declaration_wizard_cancel",),
 
+    path("downtime-declarations/",DowntimeDeclarationListView.as_view(),name="downtime_declaration_list"),
+    path("downtime-declarations/<int:pk>/edit/",DowntimeDeclarationFormView.as_view(),name="downtime_declaration_form"),
+    path("downtime-declarations/<int:pk>/delete/",DowntimeDeclarationDeleteView.as_view(),name="downtime_declaration_delete"),
+
     # AJAX endpoints
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),
     path('ajax/routing_operations/', ajax_get_routing_operations, name='ajax_get_routing_operations'),
