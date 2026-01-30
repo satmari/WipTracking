@@ -17,4 +17,8 @@ urlpatterns = [
     path("declare-break/", DeclareBreakWizardView.as_view(), name="declare_break"),
     path("declare-break/save/", DeclareBreakSaveView.as_view(), name="declare_break_save"),
 
+    path("downtime/wizard/",TeamDowntimeWizardView.as_view(),name="downtime_wizard",),
+    path("downtime/wizard/save/",TeamDowntimeSaveView.as_view(),name="downtime_wizard_save",),
+    path("downtime/wizard/cancel/",TeamDowntimeWizardCancelView.as_view(),name="downtime_wizard_cancel",),
+
 ]
