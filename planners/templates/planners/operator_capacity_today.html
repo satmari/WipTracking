@@ -90,9 +90,15 @@
                 {% for r in row.session_ranges %}
                   {{ r }}{% if not forloop.last %} + {% endif %}
                 {% endfor %}
+
                 {% if row.break_minutes %}
-                  − {{ row.break_minutes }}m
+                  − {{ row.break_minutes }} break
                 {% endif %}
+
+                {% if row.downtime_minutes %}
+                  − {{ row.downtime_minutes }} downtime
+                {% endif %}
+
                 = <strong>{{ row.available_min }}</strong>
               </td>
 
