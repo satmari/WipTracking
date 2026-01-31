@@ -3798,6 +3798,9 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
         for op in operators:
 
+            # -----------------------------
+            # WORK TIME (LOGIN / LOGOFF)
+            # -----------------------------
             sessions = LoginOperator.objects.filter(
                 operator=op,
                 login_team_date=selected_date,
@@ -3811,13 +3814,13 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
             team_name = None
             first_session = sessions.first()
-
             if first_session and first_session.team_user:
                 team_name = first_session.team_user.username
 
             for s in sessions:
                 start = s.login_team_time
                 end = s.logoff_team_time
+
                 if end <= start:
                     continue
 
@@ -3831,18 +3834,44 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 )
                 sessions_minutes += Decimal(delta.total_seconds()) / Decimal("60")
 
-            has_break = OperatorBreak.objects.filter(
-                operator=op,
-                date=selected_date
-            ).exists()
+            # -----------------------------
+            # BREAK TIME (SUM PER DAY)
+            # -----------------------------
+            break_minutes = (
+                LoginOperator.objects.filter(
+                    operator=op,
+                    login_team_date=selected_date,
+                    break_time__isnull=False,
+                )
+                .aggregate(total=Sum("break_time"))["total"]
+                or 0
+            )
+            break_minutes = Decimal(break_minutes)
 
-            break_minutes = Decimal("30.0") if has_break else Decimal("0.0")
+            # -----------------------------
+            # DOWNTIME (SUM PER DAY)
+            # -----------------------------
+            downtime_minutes = (
+                DowntimeDeclaration.objects.filter(
+                    login_operator__operator=op,
+                    login_operator__login_team_date=selected_date,
+                )
+                .aggregate(total=Sum("downtime_total"))["total"]
+                or 0
+            )
+            downtime_minutes = Decimal(downtime_minutes)
 
+            # -----------------------------
+            # AVAILABLE MINUTES
+            # -----------------------------
             available_minutes = max(
-                sessions_minutes - break_minutes,
+                sessions_minutes - break_minutes - downtime_minutes,
                 Decimal("0.0")
             )
 
+            # -----------------------------
+            # WORKED / DECLARATIONS
+            # -----------------------------
             worked_qty = Decimal("0.0")
             worked_minutes = Decimal("0.0")
             used_smv = None
@@ -3870,7 +3899,8 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 "operator": op,
                 "team": team_name,
                 "session_ranges": session_ranges,
-                "break_minutes": break_minutes,
+                "break_minutes": round(break_minutes, 1),
+                "downtime_minutes": round(downtime_minutes, 1),
                 "available_min": round(available_minutes, 1),
                 "worked_qty": round(worked_qty, 1),
                 "worked_smv": round(used_smv, 2) if used_smv else None,
