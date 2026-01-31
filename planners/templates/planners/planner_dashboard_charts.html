@@ -1,0 +1,180 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Planner Dashboard Charts{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Planner Dashboard - Charts</h1>
+  </div>
+
+  {# FILTERS #}
+  <form method="get" class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+
+        <div class="col-md-3">
+          <label class="form-label">Date from</label>
+          <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Date to</label>
+          <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Subdepartment</label>
+          <select name="subdepartment" class="form-select">
+            <option value="">ALL</option>
+            {% for s in subdepartments %}
+              <option value="{{ s.id }}" {% if selected_subdepartment == s.id|stringformat:"s" %}selected{% endif %}>
+                {{ s.subdepartment }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button class="btn btn-primary" type="submit">Apply</button>
+        </div>
+
+      </div>
+    </div>
+  </form>
+
+  {# CHARTS GRID #}
+  <div class="row g-3">
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">1) Declared QTY per day</h5>
+          <canvas id="chart1" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">2) Declarations count per day</h5>
+          <canvas id="chart2" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">3) QTY by Subdepartment</h5>
+          <canvas id="chart3" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">4) Top Operations by QTY</h5>
+          <canvas id="chart4" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100 border-info">
+        <div class="card-body">
+          <h5 class="card-title mb-3">5) Downtime (minutes) by Type</h5>
+          <canvas id="chart5" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100 border-primary">
+        <div class="card-body">
+          <h5 class="card-title mb-3">6) Operator logins by Status</h5>
+          <canvas id="chart6" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# Chart.js #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  const chart1Labels = {{ chart1_labels|safe }};
+  const chart1Data   = {{ chart1_data|safe }};
+
+  const chart2Labels = {{ chart2_labels|safe }};
+  const chart2Data   = {{ chart2_data|safe }};
+
+  const chart3Labels = {{ chart3_labels|safe }};
+  const chart3Data   = {{ chart3_data|safe }};
+
+  const chart4Labels = {{ chart4_labels|safe }};
+  const chart4Data   = {{ chart4_data|safe }};
+
+  const chart5Labels = {{ chart5_labels|safe }};
+  const chart5Data   = {{ chart5_data|safe }};
+
+  const chart6Labels = {{ chart6_labels|safe }};
+  const chart6Data   = {{ chart6_data|safe }};
+
+  new Chart(document.getElementById("chart1"), {
+    type: "line",
+    data: {
+      labels: chart1Labels,
+      datasets: [{ label: "QTY", data: chart1Data, tension: 0.25 }]
+    }
+  });
+
+  new Chart(document.getElementById("chart2"), {
+    type: "line",
+    data: {
+      labels: chart2Labels,
+      datasets: [{ label: "Declarations", data: chart2Data, tension: 0.25 }]
+    }
+  });
+
+  new Chart(document.getElementById("chart3"), {
+    type: "bar",
+    data: {
+      labels: chart3Labels,
+      datasets: [{ label: "QTY", data: chart3Data }]
+    }
+  });
+
+  new Chart(document.getElementById("chart4"), {
+    type: "bar",
+    data: {
+      labels: chart4Labels,
+      datasets: [{ label: "QTY", data: chart4Data }]
+    }
+  });
+
+  new Chart(document.getElementById("chart5"), {
+    type: "bar",
+    data: {
+      labels: chart5Labels,
+      datasets: [{ label: "Minutes", data: chart5Data }]
+    }
+  });
+
+  new Chart(document.getElementById("chart6"), {
+    type: "pie",
+    data: {
+      labels: chart6Labels,
+      datasets: [{ label: "Status", data: chart6Data }]
+    }
+  });
+</script>
+
+{% endblock %}

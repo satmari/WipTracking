@@ -4406,6 +4406,131 @@ class DowntimeDeclarationWizardCancelView(PlannerAccessMixin, View):
         messages.info(request, "Downtime declaration canceled.")
         return redirect("planners:downtime_declaration_list")
 
+# dashboard
+
+def dashboard_view(request):
+    # default poslednjih 7 dana
+    today = timezone.localdate()
+    date_from = request.GET.get("date_from")
+    date_to = request.GET.get("date_to")
+    subdep_id = request.GET.get("subdepartment")
+
+    if not date_from:
+        date_from = today - timedelta(days=6)
+    if not date_to:
+        date_to = today
+
+    # base queryset za declarations
+    decl_qs = Declaration.objects.filter(decl_date__range=[date_from, date_to])
+
+    if subdep_id:
+        decl_qs = decl_qs.filter(subdepartment_id=subdep_id)
+
+    # -------------------------
+    # 1) Total declared qty po danima (line chart)
+    # -------------------------
+    qty_by_day = (
+        decl_qs
+        .values("decl_date")
+        .annotate(total_qty=Sum("qty"))
+        .order_by("decl_date")
+    )
+    chart1_labels = [str(x["decl_date"]) for x in qty_by_day]
+    chart1_data = [x["total_qty"] or 0 for x in qty_by_day]
+
+    # -------------------------
+    # 2) Total declarations count po danima (line chart)
+    # -------------------------
+    decl_count_by_day = (
+        decl_qs
+        .values("decl_date")
+        .annotate(cnt=Count("id"))
+        .order_by("decl_date")
+    )
+    chart2_labels = [str(x["decl_date"]) for x in decl_count_by_day]
+    chart2_data = [x["cnt"] or 0 for x in decl_count_by_day]
+
+    # -------------------------
+    # 3) Qty po Subdepartment (bar chart)
+    # -------------------------
+    qty_by_subdep = (
+        decl_qs
+        .values("subdepartment__subdepartment")
+        .annotate(total_qty=Sum("qty"))
+        .order_by("-total_qty")
+    )
+    chart3_labels = [x["subdepartment__subdepartment"] or "N/A" for x in qty_by_subdep]
+    chart3_data = [x["total_qty"] or 0 for x in qty_by_subdep]
+
+    # -------------------------
+    # 4) Top 10 operacija po qty (bar chart)
+    # -------------------------
+    top_ops = (
+        decl_qs
+        .values("routing_operation__operation__name")
+        .annotate(total_qty=Sum("qty"))
+        .order_by("-total_qty")[:10]
+    )
+    chart4_labels = [x["routing_operation__operation__name"] or "N/A" for x in top_ops]
+    chart4_data = [x["total_qty"] or 0 for x in top_ops]
+
+    # -------------------------
+    # 5) Downtime total po tipu (bar chart)
+    # (povezano preko login_operator -> created_at filter)
+    # -------------------------
+    downtime_qs = DowntimeDeclaration.objects.filter(
+        created_at__date__range=[date_from, date_to]
+    )
+
+    downtime_by_type = (
+        downtime_qs
+        .values("downtime__downtime_name")
+        .annotate(total_minutes=Sum("downtime_total"))
+        .order_by("-total_minutes")[:10]
+    )
+    chart5_labels = [x["downtime__downtime_name"] for x in downtime_by_type]
+    chart5_data = [float(x["total_minutes"] or 0) for x in downtime_by_type]
+
+    # -------------------------
+    # 6) Logins po statusu (pie chart)
+    # -------------------------
+    login_qs = LoginOperator.objects.filter(login_actual__date__range=[date_from, date_to])
+
+    logins_by_status = (
+        login_qs
+        .values("status")
+        .annotate(cnt=Count("id"))
+        .order_by("-cnt")
+    )
+    chart6_labels = [x["status"] for x in logins_by_status]
+    chart6_data = [x["cnt"] or 0 for x in logins_by_status]
+
+    context = {
+        "date_from": str(date_from),
+        "date_to": str(date_to),
+        "subdepartments": Subdepartment.objects.all(),
+        "selected_subdepartment": subdep_id or "",
+
+        "chart1_labels": chart1_labels,
+        "chart1_data": chart1_data,
+
+        "chart2_labels": chart2_labels,
+        "chart2_data": chart2_data,
+
+        "chart3_labels": chart3_labels,
+        "chart3_data": chart3_data,
+
+        "chart4_labels": chart4_labels,
+        "chart4_data": chart4_data,
+
+        "chart5_labels": chart5_labels,
+        "chart5_data": chart5_data,
+
+        "chart6_labels": chart6_labels,
+        "chart6_data": chart6_data,
+    }
+
+    return render(request, "planners/planner_dashboard_charts.html", context)
 
 
 # ---------- AJAX ENDPOINTS ----------
