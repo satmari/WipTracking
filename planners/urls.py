@@ -117,6 +117,8 @@ urlpatterns = [
     path("downtime-declarations/<int:pk>/edit/",DowntimeDeclarationFormView.as_view(),name="downtime_declaration_form"),
     path("downtime-declarations/<int:pk>/delete/",DowntimeDeclarationDeleteView.as_view(),name="downtime_declaration_delete"),
 
+    path("dashboard/charts/", dashboard_view, name="planner_dashboard_charts"),
+
     # AJAX endpoints
     path('ajax/routings/', ajax_get_routings, name='ajax_get_routings'),
     path('ajax/routing_operations/', ajax_get_routing_operations, name='ajax_get_routing_operations'),
