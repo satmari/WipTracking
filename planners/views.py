@@ -3872,7 +3872,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             # WORKED (DECLARATIONS)
             # -----------------------------
             worked_minutes = Decimal("0.0")
-            worked_parts = []
+            smv_map = {}  # { smv: total_qty }
 
             declarations = Declaration.objects.filter(
                 decl_date=selected_date,
@@ -3881,12 +3881,17 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             )
 
             for d in declarations:
-                qty = Decimal(d.qty)
                 smv = Decimal(d.smv)
-                minutes = qty * smv
+                qty = Decimal(d.qty)
 
-                worked_minutes += minutes
-                worked_parts.append(f"({smv:.2f}×{qty})")
+                worked_minutes += smv * qty
+                smv_map[smv] = smv_map.get(smv, Decimal("0")) + qty
+
+            # složi formulu tek posle
+            worked_parts = [
+                f"({smv:.2f}×{qty})"
+                for smv, qty in smv_map.items()
+            ]
 
             efficiency = (
                 (worked_minutes / available_minutes) * Decimal("100")
