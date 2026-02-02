@@ -3889,7 +3889,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
 
             # složi formulu tek posle
             worked_parts = [
-                f"({smv:.2f}×{qty})"
+                f"({smv:.3f}×{qty})"
                 for smv, qty in smv_map.items()
             ]
 
