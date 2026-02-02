@@ -3,6 +3,7 @@ from django import forms
 # import datetime
 from datetime import datetime, date, time, timedelta
 import os
+import json
 from decimal import Decimal, InvalidOperation
 
 
@@ -3771,6 +3772,7 @@ class ManualAssignBreak30View(PlannerAccessMixin, View):
 # ---------- OPERATOR CAPACITY ----------
 
 
+
 class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
     template_name = "planners/operator_capacity_today.html"
 
@@ -3799,7 +3801,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
         for op in operators:
 
             # -----------------------------
-            # WORK TIME (LOGIN / LOGOFF)
+            # LOGIN SESSIONS
             # -----------------------------
             sessions = LoginOperator.objects.filter(
                 operator=op,
@@ -3820,7 +3822,6 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             for s in sessions:
                 start = s.login_team_time
                 end = s.logoff_team_time
-
                 if end <= start:
                     continue
 
@@ -3835,34 +3836,32 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 sessions_minutes += Decimal(delta.total_seconds()) / Decimal("60")
 
             # -----------------------------
-            # BREAK TIME (SUM PER DAY)
+            # BREAK
             # -----------------------------
             break_minutes = (
                 LoginOperator.objects.filter(
                     operator=op,
                     login_team_date=selected_date,
                     break_time__isnull=False,
-                )
-                .aggregate(total=Sum("break_time"))["total"]
+                ).aggregate(total=Sum("break_time"))["total"]
                 or 0
             )
             break_minutes = Decimal(break_minutes)
 
             # -----------------------------
-            # DOWNTIME (SUM PER DAY)
+            # DOWNTIME
             # -----------------------------
             downtime_minutes = (
                 DowntimeDeclaration.objects.filter(
                     login_operator__operator=op,
                     login_operator__login_team_date=selected_date,
-                )
-                .aggregate(total=Sum("downtime_total"))["total"]
+                ).aggregate(total=Sum("downtime_total"))["total"]
                 or 0
             )
             downtime_minutes = Decimal(downtime_minutes)
 
             # -----------------------------
-            # AVAILABLE MINUTES
+            # AVAILABLE
             # -----------------------------
             available_minutes = max(
                 sessions_minutes - break_minutes - downtime_minutes,
@@ -3870,11 +3869,10 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             )
 
             # -----------------------------
-            # WORKED / DECLARATIONS
+            # WORKED (DECLARATIONS)
             # -----------------------------
-            worked_qty = Decimal("0.0")
             worked_minutes = Decimal("0.0")
-            used_smv = None
+            worked_parts = []
 
             declarations = Declaration.objects.filter(
                 decl_date=selected_date,
@@ -3885,9 +3883,10 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
             for d in declarations:
                 qty = Decimal(d.qty)
                 smv = Decimal(d.smv)
-                worked_qty += qty
-                worked_minutes += qty * smv
-                used_smv = smv
+                minutes = qty * smv
+
+                worked_minutes += minutes
+                worked_parts.append(f"({smv:.2f}×{qty})")
 
             efficiency = (
                 (worked_minutes / available_minutes) * Decimal("100")
@@ -3902,9 +3901,8 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
                 "break_minutes": round(break_minutes, 1),
                 "downtime_minutes": round(downtime_minutes, 1),
                 "available_min": round(available_minutes, 1),
-                "worked_qty": round(worked_qty, 1),
-                "worked_smv": round(used_smv, 2) if used_smv else None,
                 "worked_min": round(worked_minutes, 1),
+                "worked_formula": " + ".join(worked_parts),
                 "efficiency": round(efficiency, 1),
             })
 
@@ -3913,6 +3911,7 @@ class OperatorCapacityTodayView(PlannerAccessMixin, TemplateView):
         context["rows"] = rows
         context["selected_date"] = selected_date
         return context
+
 
 
 # ---------- DOWNTIME  ------------
