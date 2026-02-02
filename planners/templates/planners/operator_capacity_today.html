@@ -10,7 +10,6 @@
     <h1 class="h4 mb-0">
       Operator Capacity – {{ selected_date|date:"d.m.Y" }}
     </h1>
-
     <a href="{% url 'planners:planner_dashboard' %}"
        class="btn btn-sm btn-outline-secondary">
       ← Back
@@ -45,99 +44,62 @@
             <th>Worked (min)</th>
             <th class="text-end">Eff %</th>
           </tr>
-
-          <!-- COLUMN FILTERS -->
           <tr>
-            <th>
-              <input class="form-control form-control-sm column-filter"
-                     data-column="0" placeholder="Search…">
-            </th>
-            <th>
-              <input class="form-control form-control-sm column-filter"
-                     data-column="1" placeholder="Search…">
-            </th>
-            <th></th>
-            <th></th>
-            <th></th>
+            <th><input class="form-control form-control-sm column-filter"></th>
+            <th><input class="form-control form-control-sm column-filter"></th>
+            <th></th><th></th><th></th>
           </tr>
         </thead>
 
         <tbody>
-        {% if rows %}
-          {% for row in rows %}
-            <tr
-              {% if row.efficiency < 50 %}
-                class="table-danger"
-              {% elif row.efficiency < 70 %}
-                class="table-warning"
-              {% elif row.efficiency > 100 %}
-                class="table-success"
+        {% for row in rows %}
+          <tr
+            {% if row.efficiency < 50 %}class="table-danger"
+            {% elif row.efficiency < 70 %}class="table-warning"
+            {% elif row.efficiency > 100 %}class="table-success"
+            {% endif %}
+          >
+            <td>
+              <strong>{{ row.operator.badge_num }}</strong><br>
+              <span class="text-muted small">{{ row.operator.name }}</span>
+            </td>
+
+            <td class="small">{{ row.team|default:"—" }}</td>
+
+            <td class="small">
+              {% for r in row.session_ranges %}
+                {{ r }}{% if not forloop.last %} + {% endif %}
+              {% endfor %}
+              {% if row.break_minutes %} − {{ row.break_minutes }} break{% endif %}
+              {% if row.downtime_minutes %} − {{ row.downtime_minutes }} downtime{% endif %}
+              = <strong>{{ row.available_min }}</strong>
+            </td>
+
+            <td class="small">
+              {% if row.worked_min %}
+                <strong>{{ row.worked_min }}</strong><br>
+                <span class="text-muted">{{ row.worked_formula }}</span>
+              {% else %}
+                0
               {% endif %}
-            >
-              <!-- OPERATOR -->
-              <td class="py-1">
-                <strong>{{ row.operator.badge_num }}</strong><br>
-                <span class="text-muted small">{{ row.operator.name }}</span>
-              </td>
+            </td>
 
-              <!-- TEAM (team_user.username) -->
-              <td class="small py-1">
-                {{ row.team|default:"—" }}
-              </td>
-
-              <!-- AVAILABLE -->
-              <td class="small py-1">
-                {% for r in row.session_ranges %}
-                  {{ r }}{% if not forloop.last %} + {% endif %}
-                {% endfor %}
-
-                {% if row.break_minutes %}
-                  − {{ row.break_minutes }} break
-                {% endif %}
-
-                {% if row.downtime_minutes %}
-                  − {{ row.downtime_minutes }} downtime
-                {% endif %}
-
-                = <strong>{{ row.available_min }}</strong>
-              </td>
-
-              <!-- WORKED -->
-              <td class="small py-1">
-                {% if row.worked_qty %}
-                  {{ row.worked_qty }} × {{ row.worked_smv }}
-                  = <strong>{{ row.worked_min }}</strong>
-                {% else %}
-                  0
-                {% endif %}
-              </td>
-
-              <!-- EFFICIENCY -->
-              <td class="text-end py-1" data-order="{{ row.efficiency }}">
-                <strong>{{ row.efficiency }}%</strong>
-              </td>
-            </tr>
-          {% endfor %}
-        {% else %}
+            <td class="text-end">
+              <strong>{{ row.efficiency }}%</strong>
+            </td>
+          </tr>
+        {% empty %}
           <tr>
             <td colspan="5" class="text-center text-muted py-4">
               No operator activity for selected date.
             </td>
           </tr>
-        {% endif %}
+        {% endfor %}
         </tbody>
 
       </table>
 
     </div>
-  </div>
-
-  <!-- LEGEND -->
-  <div class="small mt-2">
-    <span class="badge bg-danger">&lt; 50%</span>
-    <span class="badge bg-warning text-dark">50–70%</span>
-    <span class="badge bg-secondary">70–100%</span>
-    <span class="badge bg-success">&gt; 100%</span>
   </div>
 
 </div>
@@ -146,57 +108,15 @@
 {% block scripts %}
 {{ block.super }}
 
-<style>
-  /* column filters */
-  .column-filter {
-    min-width: 80px;
-    font-size: .8rem;
-    padding: 2px 4px;
-  }
-
-  /* stable layout */
-  #capacity-table th,
-  #capacity-table td {
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-
-  #capacity-table thead input {
-    width: 100%;
-  }
-
-  table.dataTable {
-    width: 100% !important;
-  }
-
-  /* compact text */
-  #capacity-table td.small {
-    font-size: 0.82rem;
-    line-height: 1.2;
-  }
-</style>
-
 <script>
-$(document).ready(function () {
-
-    const table = $('#capacity-table').DataTable({
-        order: [[4, 'desc']],     // Eff % DESC
-        pageLength: 25,
-        ordering: true,
-        searching: true,          // ⬅️ mora biti true da bi column search radio
-        autoWidth: false,
-        orderCellsTop: true
-    });
-
-    // COLUMN FILTERS
-    $('#capacity-table thead').on('keyup change', '.column-filter', function () {
-        const colIndex = $(this).data('column');
-        table
-            .column(colIndex)
-            .search(this.value)
-            .draw();
-    });
-
+$(function () {
+  $('#capacity-table').DataTable({
+    order: [[4, 'desc']],
+    pageLength: 25,
+    searching: true,
+    ordering: true
+  });
 });
 </script>
+
 {% endblock %}
