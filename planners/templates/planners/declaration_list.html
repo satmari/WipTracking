@@ -10,15 +10,10 @@
     <h1 class="h4 mb-0">Declarations</h1>
 
     <div class="btn-group">
-      <div class="btn-group">
-        <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-          + Add declaration
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item" href="{% url 'planners:declaration_wizard' %}">Wizard (step-by-step)</a></li>
-<!--          <li><a class="dropdown-item" href="{% url 'planners:declaration_add' %}">Classic single-form</a></li>-->
-        </ul>
-      </div>
+      <a href="{% url 'planners:declaration_wizard' %}"
+         class="btn btn-primary btn-sm">
+        + Add declaration
+      </a>
     </div>
   </div>
 
