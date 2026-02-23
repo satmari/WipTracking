@@ -767,7 +767,8 @@ class ProListView(PlannerAccessMixin, ListView):
 
     def get_queryset(self):
         return (
-            Pro.objects.all()
+            Pro.objects
+            .filter(status=True)
             .prefetch_related("pro_subdepartments__subdepartment")
             .order_by("del_date", "pro_name")
         )
@@ -2954,6 +2955,7 @@ class DeclarationListView(PlannerAccessMixin, ListView):
     def get_queryset(self):
         return (
             Declaration.objects
+            .filter(pro__status=True)
             .select_related("teamuser", "subdepartment", "pro", "routing", "routing_operation")
             .prefetch_related("operators")
             .annotate(op_count=Count("operators"))
