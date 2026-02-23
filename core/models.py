@@ -256,7 +256,7 @@ class Routing(models.Model):
         verbose_name="Declaration type",
     )
 
-    ready = models.BooleanField(          # NOVO POLJE
+    ready = models.BooleanField(
         default=False,
         verbose_name="Ready",
     )

@@ -1196,7 +1196,7 @@ class RoutingListView(PlannerAccessMixin, ListView):
     template_name = "planners/routing_list.html"
     context_object_name = "routings"
     paginate_by = None
-    # paginate_by = 50
+
 
     def get_queryset(self):
         return (
@@ -1212,7 +1212,7 @@ class RoutingOperationByRoutingListView(PlannerAccessMixin, ListView):
     template_name = "planners/routing_operation_list.html"
     context_object_name = "routing_ops"
     paginate_by = None
-    # paginate_by = 50
+
 
     def get_queryset(self):
         routing_id = self.kwargs["routing_id"]
@@ -1289,9 +1289,9 @@ class RoutingForm(forms.ModelForm):
     def clean_sku(self):
         sku = self.cleaned_data.get("sku", "").strip()
 
-        if len(sku) not in (14, 15):
+        if len(sku) not in (14, 18):
             raise forms.ValidationError(
-                "SKU must be exactly 14 or 15 characters long."
+                "SKU must be between 14 or 18 characters long."
             )
 
         return sku
