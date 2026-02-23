@@ -1290,7 +1290,7 @@ class RoutingForm(forms.ModelForm):
     def clean_sku(self):
         sku = self.cleaned_data.get("sku", "").strip()
 
-        if len(sku) not in (14, 18):
+        if not 14 <= len(sku) <= 18:
             raise forms.ValidationError(
                 "SKU must be between 14 or 18 characters long."
             )
