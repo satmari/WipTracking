@@ -112,12 +112,6 @@
                   <option value="0">0</option>
                   <option value="30">30</option>
                 </select>
-
-                <input type="number"
-                       min="0"
-                       class="form-control form-control-sm break-filter-input"
-                       placeholder="custom"
-                       style="width: 80px;">
               </div>
             </th>
 
@@ -217,41 +211,20 @@ $(document).ready(function () {
     });
 
     // BREAK FILTER (dropdown + manual input)
-const breakCol = 10;
+    const breakCol = 10;
 
-// dropdown
-$('.break-filter-select').on('change', function () {
+    // dropdown
+    $('.break-filter-select').on('change', function () {
 
-    $('.break-filter-input').val('');  // clear manual input
+        $('.break-filter-input').val('');  // clear manual input
 
-    let val = $(this).val();
-
-    if (!val) {
-        dt.column(breakCol).search('').draw();
-    } else {
-        dt.column(breakCol).search('^' + val + '$', true, false).draw();
-    }
-});
-
-    // manual input
-    $('.break-filter-input').on('keyup change', function () {
-
-        $('.break-filter-select').val(''); // clear dropdown
-
-        let val = $(this).val().trim();
+        let val = $(this).val();
 
         if (!val) {
             dt.column(breakCol).search('').draw();
-            return;
-        }
-
-        if (/^\d+$/.test(val)) {
-            // exact match (0 neće matchovati 30)
+        } else {
             dt.column(breakCol).search('^' + val + '$', true, false).draw();
-            return;
         }
-
-        dt.column(breakCol).search('').draw();
     });
 });
 </script>
