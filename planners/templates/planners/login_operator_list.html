@@ -103,12 +103,22 @@
               </select>
             </th>
 
-            <!-- BREAK FILTER (INPUT, NOT DROPDOWN) -->
             <th>
-              <input type="text"
-                     class="form-control form-control-sm column-filter"
-                     data-column="10"
-                     placeholder="None / 0–30">
+              <div class="d-flex gap-1">
+                <select class="form-select form-select-sm break-filter-select"
+                        style="width: 90px;">
+                  <option value="">All</option>
+                  <option value="None">None</option>
+                  <option value="0">0</option>
+                  <option value="30">30</option>
+                </select>
+
+                <input type="number"
+                       min="0"
+                       class="form-control form-control-sm break-filter-input"
+                       placeholder="custom"
+                       style="width: 80px;">
+              </div>
             </th>
 
             <th></th>
@@ -206,12 +216,28 @@ $(document).ready(function () {
         order: [[0, 'desc']]
     });
 
-    // -------------------------------------------------
-    // EXACT MATCH FILTER FOR "Break (min)" COLUMN
-    // -------------------------------------------------
-    const breakCol = 10;
+    // BREAK FILTER (dropdown + manual input)
+const breakCol = 10;
 
-    $('input.column-filter[data-column="' + breakCol + '"]').on('keyup change', function () {
+// dropdown
+$('.break-filter-select').on('change', function () {
+
+    $('.break-filter-input').val('');  // clear manual input
+
+    let val = $(this).val();
+
+    if (!val) {
+        dt.column(breakCol).search('').draw();
+    } else {
+        dt.column(breakCol).search('^' + val + '$', true, false).draw();
+    }
+});
+
+    // manual input
+    $('.break-filter-input').on('keyup change', function () {
+
+        $('.break-filter-select').val(''); // clear dropdown
+
         let val = $(this).val().trim();
 
         if (!val) {
@@ -219,18 +245,13 @@ $(document).ready(function () {
             return;
         }
 
-        if (val.toLowerCase() === 'none') {
-            dt.column(breakCol).search('^None$', true, false).draw();
-            return;
-        }
-
         if (/^\d+$/.test(val)) {
+            // exact match (0 neće matchovati 30)
             dt.column(breakCol).search('^' + val + '$', true, false).draw();
             return;
         }
 
-        // invalid input → no results
-        dt.column(breakCol).search('a^').draw();
+        dt.column(breakCol).search('').draw();
     });
 });
 </script>
