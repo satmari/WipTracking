@@ -218,6 +218,9 @@ class OperatorListView(PlannerAccessMixin, ListView):
     template_name = "planners/operator_list.html"
     context_object_name = "operators"
 
+    def get_queryset(self):
+        return Operator.objects.filter(act=True)
+
 
 class OperatorCreateView(PlannerAccessMixin, CreateView):
     model = Operator
