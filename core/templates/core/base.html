@@ -15,52 +15,13 @@
     <link rel="stylesheet" href="{% static 'css/fixedHeader.dataTables.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/custom.css' %}">
 
-    <style>
-      .django-messages-overlay { position: fixed; top: 70px; left: 20px; z-index: 9999; display:flex; flex-direction:column; gap:.5rem; }
-      .django-message-toast { min-width:280px; max-width:420px; border-radius:.6rem; padding:.5rem .75rem .6rem; color:#0f172a; background:#e0f2fe; box-shadow:0 10px 20px rgba(15,23,42,.25); border-left:4px solid #0ea5e9; font-size:.9rem; animation: djangoToastSlideIn .25s ease-out; }
-      .django-message-header{ display:flex; justify-content:space-between; align-items:center; font-weight:600; margin-bottom:.2rem; }
-      .django-message-body{ font-size:.85rem; }
-      .django-message-hide{ opacity:0; transform:translateY(-6px); transition:opacity .4s ease, transform .4s ease; }
-      @keyframes djangoToastSlideIn { from{ opacity:0; transform:translateY(-10px) translateX(10px);} to{opacity:1; transform:translateY(0);} }
 
-        /* ===== DJANGO MESSAGE TYPES ===== */
-
-        .django-message-toast.django-message-error {
-          background: #f8d7da;
-          border-left: 4px solid #dc3545;
-          color: #842029;
-        }
-
-        .django-message-toast.django-message-warning {
-          background: #fff3cd;
-          border-left: 4px solid #ffc107;
-          color: #664d03;
-        }
-
-        .django-message-toast.django-message-success {
-          background: #d1e7dd;
-          border-left: 4px solid #198754;
-          color: #0f5132;
-        }
-
-        .django-message-toast.django-message-info {
-          background: #e0f2fe;
-          border-left: 4px solid #0ea5e9;
-          color: #0f172a;
-        }
-
-        .alert-info {
-          background-color: #f8d7da !important;
-          border-color: #dc3545 !important;
-          color: #842029 !important;
-        }
-
-    </style>
 
     {% block extra_head %}{% endblock %}
 </head>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-SEYKXD71MH"></script>
+
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
