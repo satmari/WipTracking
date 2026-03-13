@@ -2772,7 +2772,13 @@ class DeclarationForm(forms.ModelForm):
         # -------------------------------------------------
         # Routing queryset (depends on PRO + subdepartment)
         # -------------------------------------------------
-        effective_pro = pro or (instance.pro if instance else None)
+        if self.data.get("pro"):
+            try:
+                effective_pro = Pro.objects.get(pk=self.data.get("pro"))
+            except Pro.DoesNotExist:
+                effective_pro = None
+        else:
+            effective_pro = pro or (instance.pro if instance else None)
 
         if effective_pro:
             qs = Routing.objects.filter(
@@ -2789,7 +2795,14 @@ class DeclarationForm(forms.ModelForm):
         # -------------------------------------------------
         # Routing operation queryset (depends on routing)
         # -------------------------------------------------
-        effective_routing = routing or (instance.routing if instance else None)
+        # routing iz POST
+        if self.data.get("routing"):
+            try:
+                effective_routing = Routing.objects.get(pk=self.data.get("routing"))
+            except Routing.DoesNotExist:
+                effective_routing = None
+        else:
+            effective_routing = routing or (instance.routing if instance else None)
 
         if effective_routing:
             self.fields["routing_operation"].queryset = (
