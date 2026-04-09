@@ -668,7 +668,7 @@ class ProForm(forms.ModelForm):
     )
     size = forms.CharField(
         required=False,
-        max_length=4,
+        max_length=5,
         widget=forms.TextInput(attrs={"class": "form-control"})
     )
 
