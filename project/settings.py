@@ -18,13 +18,15 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 DJANGO_ENV = config('DJANGO_ENV', default='dev')
-DEBUG = config('DEBUG', cast=bool, default=False)
+DEBUG = str(config('DEBUG', default='False')).strip().lower() in {'1', 'true', 'yes', 'on'}
 
 _force_script = config('FORCE_SCRIPT_NAME', default='')
 FORCE_SCRIPT_NAME = _force_script or None
 
 STATIC_URL = config('STATIC_URL', default='/static/')
 SESSION_COOKIE_PATH = config('SESSION_COOKIE_PATH', default='/')
+if FORCE_SCRIPT_NAME is None:
+    SESSION_COOKIE_PATH = '/'
 
 
 # Quick-start development settings - unsuitable for production
