@@ -7,26 +7,29 @@ from django.contrib.auth import get_user_model
 app_name = 'core'
 
 
+def redirect_by_role(user):
+    if user.groups.filter(name__iexact='PLANNERS').exists():
+        return redirect('planners:planner_dashboard')
+    elif user.groups.filter(name__iexact='ADMINS').exists():
+        return redirect('core:admin_dashboard')
+    elif user.groups.filter(name__iexact='TEAMS').exists():
+        return redirect('teams:team_dashboard')
+    return redirect('core:main_page')
+
+
 def main_page(request):
     user = request.user
 
     if not user.is_authenticated:
         return render(request, 'core/main_page.html')
 
-    if user.groups.filter(name__iexact='ADMINS').exists():
-        # return redirect('core:admin_dashboard')
-        return redirect('planners:planner_dashboard')
-
-    elif user.groups.filter(name__iexact='PLANNERS').exists():
-        return redirect('planners:planner_dashboard')
-
-    elif user.groups.filter(name__iexact='TEAMS').exists():
-        return redirect('teams:team_dashboard')
-
-    return render(request, 'core/main_page.html')
+    return redirect_by_role(user)
 
 
 def login_view(request):
+    if request.user.is_authenticated:
+        return redirect_by_role(request.user)
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password')
@@ -35,15 +38,7 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-
-            if user.groups.filter(name__iexact='PLANNERS').exists():
-                return redirect('planners:planner_dashboard')
-            elif user.groups.filter(name__iexact='ADMINS').exists():
-                return redirect('core:admin_dashboard')
-            elif user.groups.filter(name__iexact='TEAMS').exists():
-                return redirect('teams:team_dashboard')
-            else:
-                return redirect('core:main_page')
+            return redirect_by_role(user)
         else:
             messages.error(request, 'Invalid username or password.')
 

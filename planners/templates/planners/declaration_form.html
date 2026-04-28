@@ -146,134 +146,97 @@
 <script>
 $(function(){
 
-  /* =======================
-     Select2 operators
-  ======================== */
+  // vrijednosti iz instance (prazne na create formi)
+  var initialPro     = '{{ form.instance.pro_id|default:"" }}';
+  var initialRouting = '{{ form.instance.routing_id|default:"" }}';
+  var initialOp      = '{{ form.instance.routing_operation_id|default:"" }}';
+  var initialSubdep  = '{{ form.instance.subdepartment_id|default:"" }}';
+
+  // select2 za sve single-selectove
+  $('#id_teamuser, #id_subdepartment, #id_pro, #id_routing, #id_routing_operation').select2({
+    width: '100%',
+    allowClear: true,
+    placeholder: '---'
+  });
   $('.select2-operators').select2({
     width: '100%',
-    placeholder: "Select operators...",
+    placeholder: 'Select operators...',
     allowClear: true
   });
 
-  /* =======================
-     TeamUser -> Subdepartment
-  ======================== */
+  // čuva operation pk koji treba izabrati nakon što se routing učita (init)
+  var pendingOp = null;
+
+  // ── TeamUser → Subdepartment ──
   $('#id_teamuser').on('change', function(){
     var teamuser_id = $(this).val();
     if (!teamuser_id) {
-      $('#id_subdepartment').val('');
+      $('#id_subdepartment').val(null).trigger('change');
       return;
     }
     $.getJSON("{% url 'planners:ajax_get_teamuser' %}", { teamuser_id: teamuser_id })
       .done(function(data){
-        $('#id_subdepartment').val(data.subdepartment_id || '');
+        $('#id_subdepartment').val(data.subdepartment_id || null).trigger('change');
       })
       .fail(function(){
-        $('#id_subdepartment').val('');
+        $('#id_subdepartment').val(null).trigger('change');
       });
   });
 
-  /* =======================
-     PRO -> Routing
-  ======================== */
+  // ── PRO → Routing ──
   $('#id_pro').on('change', function(){
     var pro_id = $(this).val();
     var subdep = $('#id_subdepartment').val() || '';
 
-    $('#id_routing').empty().append('<option value="">Loading...</option>');
-    $('#id_routing_operation').empty().append('<option value="">---</option>');
+    $('#id_routing').empty().append('<option value=""></option>').trigger('change');
+    $('#id_routing_operation').empty().append('<option value=""></option>').trigger('change');
 
-    if (!pro_id) {
-      $('#id_routing').empty().append('<option value="">---</option>');
-      return;
-    }
+    if (!pro_id) return;
 
-    $.getJSON("{% url 'planners:ajax_get_routings' %}", {
-      pro_id: pro_id,
-      subdepartment: subdep
-    }).done(function(data){
-      $('#id_routing').empty().append('<option value="">--- Select routing ---</option>');
-      data.results.forEach(function(it){
-        $('#id_routing').append(new Option(it.text, it.id));
+    $.getJSON("{% url 'planners:ajax_get_routings' %}", { pro_id: pro_id, subdepartment: subdep })
+      .done(function(data){
+        var $r = $('#id_routing').empty().append('<option value=""></option>');
+        data.results.forEach(function(it){ $r.append(new Option(it.text, it.id)); });
+        $r.trigger('change');
       });
-    });
   });
 
-  /* =======================
-     Routing -> Operation
-  ======================== */
+  // ── Routing → Operation ──
   $('#id_routing').on('change', function(){
     var routing_id = $(this).val();
-    $('#id_routing_operation').empty().append('<option value="">Loading...</option>');
+    var toSelect   = pendingOp;
+    pendingOp = null;
 
-    if (!routing_id) {
-      $('#id_routing_operation').empty().append('<option value="">---</option>');
-      return;
-    }
+    var $op = $('#id_routing_operation').empty().append('<option value=""></option>');
+    $op.trigger('change');
+    if (!routing_id) return;
 
-    $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", {
-      routing_id: routing_id
-    }).done(function(data){
-      $('#id_routing_operation')
-        .empty()
-        .append('<option value="">--- Select operation ---</option>');
-      data.results.forEach(function(it){
-        $('#id_routing_operation').append(new Option(it.text, it.id));
+    $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", { routing_id: routing_id })
+      .done(function(data){
+        $op.empty().append('<option value=""></option>');
+        data.results.forEach(function(it){ $op.append(new Option(it.text, it.id)); });
+        if (toSelect) $op.val(toSelect);
+        $op.trigger('change');
       });
-    });
   });
 
-  /* ==================================================
-     EDIT INIT: auto-load routing & operation on edit
-  =================================================== */
-  var initialPro = $('#id_pro').val();
-  var initialRouting = '{{ form.initial.routing|default_if_none:"" }}';
-  var initialRoutingOp = '{{ form.initial.routing_operation|default_if_none:"" }}';
-
+  // ── Edit init: učitaj routinge i izaberi sačuvane vrijednosti ──
   if (initialPro) {
-    var subdep = $('#id_subdepartment').val() || '';
+    pendingOp = initialOp || null;
 
     $.getJSON("{% url 'planners:ajax_get_routings' %}", {
       pro_id: initialPro,
-      subdepartment: subdep
+      subdepartment: initialSubdep
     }).done(function(data){
-      $('#id_routing').empty().append('<option value="">--- Select routing ---</option>');
-      data.results.forEach(function(it){
-        $('#id_routing').append(new Option(it.text, it.id));
-      });
-
+      var $r = $('#id_routing').empty().append('<option value=""></option>');
+      data.results.forEach(function(it){ $r.append(new Option(it.text, it.id)); });
       if (initialRouting) {
-        $('#id_routing').val(initialRouting).trigger('change.editInit');
+        $r.val(initialRouting).trigger('change');  // okida routing→operation handler
+      } else {
+        pendingOp = null;
+        $r.trigger('change');
       }
     });
-  }
-
-  $('#id_routing').on('change.editInit', function(){
-    var routing_id = $(this).val();
-    if (!routing_id) return;
-
-    $.getJSON("{% url 'planners:ajax_get_routing_operations' %}", {
-      routing_id: routing_id
-    }).done(function(data){
-      $('#id_routing_operation')
-        .empty()
-        .append('<option value="">--- Select operation ---</option>');
-      data.results.forEach(function(it){
-        $('#id_routing_operation').append(new Option(it.text, it.id));
-      });
-
-      if (initialRoutingOp) {
-        $('#id_routing_operation').val(initialRoutingOp);
-      }
-    });
-
-    // run only once
-    $('#id_routing').off('change.editInit');
-  });
-
-  /* init subdepartment if teamuser already selected */
-  if ($('#id_teamuser').val()) {
-    $('#id_teamuser').trigger('change');
   }
 
 });

@@ -23,6 +23,7 @@ staticfiles/
 # VS Code / PyCharm
 .idea/
 .vscode/
+.claude/
 
 # OS
 .DS_Store
