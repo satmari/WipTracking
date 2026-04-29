@@ -33,10 +33,9 @@ if FORCE_SCRIPT_NAME is None:
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^thr6bgy-&-ylmw7r(j)k8c8($9q+6lyd!qw5ecifjl9$yeyou'
+SECRET_KEY = config('SECRET_KEY')
 
-
-ALLOWED_HOSTS = ['172.27.161.193', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
