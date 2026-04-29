@@ -1,20 +1,32 @@
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block title %}Declarations{% endblock %}
+{% block title %}{% if show_all %}All Declarations{% else %}Declarations (last 30 days){% endif %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Declarations</h1>
-
-    <div class="btn-group">
-      <a href="{% url 'planners:declaration_wizard' %}"
-         class="btn btn-primary btn-sm">
-        + Add declaration
-      </a>
+    <div class="d-flex align-items-center gap-2">
+      <h1 class="h4 mb-0">
+        Declarations
+        {% if show_all %}
+          <small class="text-muted fs-6 fw-normal">— all</small>
+        {% else %}
+          <small class="text-muted fs-6 fw-normal">from {{ decl_date_from }}</small>
+        {% endif %}
+      </h1>
+      {% if show_all %}
+        <a href="{% url 'planners:declaration_list' %}" class="btn btn-outline-secondary btn-sm">Last 30 days</a>
+      {% else %}
+        <a href="{% url 'planners:declaration_list' %}?all=1" class="btn btn-outline-secondary btn-sm">View all declarations</a>
+      {% endif %}
     </div>
+
+    <a href="{% url 'planners:declaration_wizard' %}"
+       class="btn btn-primary btn-sm">
+      + Add declaration
+    </a>
   </div>
 
   <div class="card shadow-sm">

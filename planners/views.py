@@ -766,37 +766,41 @@ class ProListView(PlannerAccessMixin, ListView):
     template_name = "planners/pro_list.html"
     context_object_name = "pros"
     paginate_by = None
-    # paginate_by = 50
+
+    def _show_closed(self):
+        return self.request.GET.get("closed") == "1"
 
     def get_queryset(self):
+        status = False if self._show_closed() else True
         return (
             Pro.objects
-            .filter(status=True)
+            .filter(status=status)
             .prefetch_related("pro_subdepartments__subdepartment")
             .order_by("del_date", "pro_name")
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["show_closed"] = self._show_closed()
 
-        # postoji routing za isti (SKU + subdepartment)
-        routing_exists = Routing.objects.filter(
-            sku=OuterRef("pro__sku"),
-            subdepartment=OuterRef("subdepartment"),
-        )
-
-        # aktivni PRO subdepartments koji NEMAJU routing
-        missing = (
-            ProSubdepartment.objects
-            .filter(active=True, pro__sku__isnull=False)
-            .annotate(has_routing=Exists(routing_exists))
-            .filter(has_routing=False)
-            .select_related("pro", "subdepartment")
-            .order_by("pro__pro_name")
-        )
-
-        context["pros_without_routing"] = missing
-        context["pros_without_routing_count"] = missing.count()
+        if not self._show_closed():
+            routing_exists = Routing.objects.filter(
+                sku=OuterRef("pro__sku"),
+                subdepartment=OuterRef("subdepartment"),
+            )
+            missing = (
+                ProSubdepartment.objects
+                .filter(active=True, pro__sku__isnull=False)
+                .annotate(has_routing=Exists(routing_exists))
+                .filter(has_routing=False)
+                .select_related("pro", "subdepartment")
+                .order_by("pro__pro_name")
+            )
+            context["pros_without_routing"] = missing
+            context["pros_without_routing_count"] = missing.count()
+        else:
+            context["pros_without_routing"] = []
+            context["pros_without_routing_count"] = 0
 
         return context
 
@@ -2968,8 +2972,14 @@ class DeclarationListView(PlannerAccessMixin, ListView):
     context_object_name = "declarations"
     paginate_by = None
 
+    def _cutoff_date(self):
+        return date.today() - timedelta(days=30)
+
+    def _show_all(self):
+        return self.request.GET.get("all") == "1"
+
     def get_queryset(self):
-        return (
+        qs = (
             Declaration.objects
             .filter(pro__status=True)
             .select_related("teamuser", "subdepartment", "pro", "routing", "routing_operation")
@@ -2977,6 +2987,15 @@ class DeclarationListView(PlannerAccessMixin, ListView):
             .annotate(op_count=Count("operators"))
             .order_by("-decl_date", "teamuser__username")
         )
+        if not self._show_all():
+            qs = qs.filter(decl_date__gte=self._cutoff_date())
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["show_all"] = self._show_all()
+        ctx["decl_date_from"] = self._cutoff_date().strftime("%d.%m.%Y.")
+        return ctx
 
 
 class DeclarationDetailView(PlannerAccessMixin, DetailView):
@@ -3982,13 +4001,6 @@ class DowntimeForm(forms.ModelForm):
 
 
 # ---------- DOWNTIME  ------------
-
-
-class DowntimeListView(PlannerAccessMixin, ListView):
-    model = Downtime
-    template_name = "planners/downtime_list.html"
-    context_object_name = "downtimes"
-    ordering = ["subdepartment__subdepartment", "downtime_name"]
 
 
 class DowntimeCreateView(PlannerAccessMixin, CreateView):
