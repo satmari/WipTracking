@@ -8,7 +8,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.forms.widgets import CheckboxSelectMultiple, HiddenInput
 from datetime import datetime, timedelta
-from django.db.models import Min
+from django.db.models import Min, Sum
+from collections import defaultdict
 
 
 from core.models import *
@@ -64,6 +65,47 @@ class TeamDashboardView(TeamAccessMixin, TemplateView):
         context["calendar_entry"] = calendar_entry
         context["shift_state"] = shift_state
         context["shift_alert_class"] = shift_alert_class
+
+        # Operators logged in today for this team
+        today_logins = (
+            LoginOperator.objects
+            .filter(team_user=self.request.user, login_team_date=today)
+            .exclude(status__in=['ERROR', 'IGNORE'])
+            .select_related('operator')
+            .order_by('operator__name')
+        )
+        context['today_logins'] = today_logins
+
+        # Declarations today: qty summed per operator per operation
+        decl_rows = (
+            Declaration.objects
+            .filter(teamuser=self.request.user, decl_date=today)
+            .values(
+                'operators__id',
+                'operators__badge_num',
+                'operators__name',
+                'routing_operation__operation__name',
+            )
+            .annotate(total_qty=Sum('qty'))
+            .order_by('operators__name', 'routing_operation__operation__name')
+        )
+
+        op_data = defaultdict(lambda: {'badge': '', 'name': '', 'operations': [], 'total': 0})
+        for row in decl_rows:
+            key = row['operators__id'] if row['operators__id'] is not None else '__team__'
+            if key == '__team__':
+                op_data[key]['badge'] = '-'
+                op_data[key]['name'] = '(Team)'
+            else:
+                op_data[key]['badge'] = row['operators__badge_num'] or ''
+                op_data[key]['name'] = row['operators__name'] or ''
+            op_data[key]['operations'].append({
+                'operation': row['routing_operation__operation__name'] or '-',
+                'qty': row['total_qty'],
+            })
+            op_data[key]['total'] += row['total_qty']
+
+        context['op_data'] = list(op_data.values())
         return context
 
 

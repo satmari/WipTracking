@@ -114,5 +114,51 @@
     </div>
 
   </div>
+
+  <!-- TODAY'S OPERATOR SUMMARY TABLE -->
+  <div class="mt-5">
+    <h5 class="mb-3">Today's Output Summary</h5>
+
+    {% if op_data %}
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm align-middle">
+          <thead style="background: linear-gradient(90deg, #595d62, #1f2933); color: #f9fafb;">
+            <tr>
+              <th>Badge</th>
+              <th>Operator</th>
+              <th>Operation</th>
+              <th class="text-end">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for op in op_data %}
+              {% with op_row_count=op.operations|length %}
+              {% for oper in op.operations %}
+              <tr>
+                {% if forloop.first %}
+                  <td rowspan="{{ op_row_count }}" class="fw-semibold align-middle">{{ op.badge }}</td>
+                  <td rowspan="{{ op_row_count }}" class="fw-semibold align-middle">{{ op.name }}</td>
+                {% endif %}
+                <td>{{ oper.operation }}</td>
+                <td class="text-end">{{ oper.qty }}</td>
+              </tr>
+              {% endfor %}
+              {% if not forloop.last %}
+              <tr style="height: 4px; background: linear-gradient(90deg, #595d62, #1f2933);"><td colspan="4" style="padding: 0;"></td></tr>
+              {% endif %}
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    {% elif today_logins %}
+      <p class="text-muted small">Operators are logged in but no output declared yet today.</p>
+
+    {% else %}
+      <p class="text-muted small">No operators logged in today.</p>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}
